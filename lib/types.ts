@@ -34,6 +34,29 @@ export type PhotoStats = {
   warmth: number; // 0..1, доля тёплых оттенков OKLCH 20-100°, вес = насыщенность
 };
 
+export type WeatherKind = "clear" | "cloud" | "fog" | "rain" | "snow" | "storm";
+export type Weather = { temp: number; wind: number; code: number; kind: WeatherKind; label: string };
+/** Координаты округлены до ~100 м, хранятся только в браузере пользователя. */
+export type Geo = { lat: number; lon: number; place?: string };
+
+export type ItemKind = "disc" | "weather" | "map" | "place" | "note" | "sticker" | "tape" | "stamp" | "wave";
+/** Элемент, который пользователь расставляет на сцене. x, y — центр в % сцены. */
+export type SceneItem = {
+  id: string;
+  kind: ItemKind;
+  x: number;
+  y: number;
+  s: number;
+  r: number;
+  text?: string;
+  subtext?: string;
+  variant?: string;
+  color?: string;
+  font?: string;
+  size?: number;
+  zIndex?: number;
+};
+
 export type DayPassport = {
   id: string;
   date: string; // YYYY-MM-DD
@@ -56,4 +79,7 @@ export type DayPassport = {
     };
   };
   why: string[];
+  weather?: Weather;
+  geo?: Geo;
+  items?: SceneItem[];
 };

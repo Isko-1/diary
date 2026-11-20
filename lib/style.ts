@@ -1,5 +1,5 @@
 import { clampChroma, converter, formatHex, parse } from "culori";
-import type { DayContext, DayPassport, PhotoStats, Song, Technique } from "./types";
+import type { DayContext, DayPassport, PhotoStats, Song, Technique, Weather } from "./types";
 
 const toOklch = converter("oklch");
 const clamp = (x: number) => Math.min(1, Math.max(0, x));
@@ -96,6 +96,32 @@ export function pickStyle(
       `время суток «${ctx.timeOfDay}» → светлота палитры, сезон «${ctx.season}» → базовый оттенок`,
     ],
   };
+}
+
+/** Погода двигает фактуру и ритм, а не цвет: «дождь» не значит «синий». */
+export function weatherTweak(style: DayPassport["style"], w: Weather) {
+  const p = { ...style.params };
+  const why: string[] = [];
+  if (w.kind === "rain" || w.kind === "storm") {
+    p.softness = clamp(p.softness + 0.2);
+    p.grain += 0.04;
+    why.push(`${w.label} → мягче края, больше зерна, по кадру идут капли`);
+  } else if (w.kind === "fog") {
+    p.softness = clamp(p.softness + 0.3);
+    why.push("туман → размытые края, дымка внизу кадра");
+  } else if (w.kind === "snow") {
+    p.softness = clamp(p.softness + 0.15);
+    p.tempo = clamp(p.tempo * 0.8);
+    why.push("снег → тише и медленнее, по кадру падают хлопья");
+  } else if (w.kind === "clear") {
+    p.grain = Math.max(0.08, p.grain - 0.03);
+    why.push("ясно → чище свет, меньше зерна");
+  }
+  if (w.wind >= 20) {
+    p.tempo = clamp(p.tempo + 0.15);
+    why.push(`ветер ${w.wind} км/ч → быстрее движение`);
+  }
+  return { style: { ...style, params: p }, why };
 }
 
 /** Фон и цвет текста постоянных элементов — из палитры дня. */

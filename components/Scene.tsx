@@ -88,6 +88,39 @@ export default function Scene({ day }: { day: DayPassport }) {
 
       const TOTAL = Math.round(1800 + 1600 * density);
 
+      // погода на кадре: дождь, снег, дымка. Движение идёт по часам, а не по циклу сцены, чтобы не дёргаться на стыке
+      let clock = 0;
+      const wr = rng(day.id + "w");
+      const drops = Array.from({ length: 80 }, () => ({ x: wr(), y: wr(), v: 0.6 + wr() * 0.8, z: wr() }));
+      function fx(a: number) {
+        const k = day.weather?.kind;
+        if (!k || k === "clear" || k === "cloud") return;
+        ctx.save();
+        ctx.globalAlpha = a;
+        if (k === "fog") {
+          const g = ctx.createLinearGradient(0, F.y, 0, F.y + F.h);
+          g.addColorStop(0, "rgba(255,255,255,0)");
+          g.addColorStop(1, "rgba(255,255,255,.38)");
+          ctx.fillStyle = g;
+          ctx.fillRect(F.x, F.y, F.w, F.h);
+        } else if (k === "snow") {
+          ctx.fillStyle = "rgba(255,255,255,.85)";
+          drops.forEach((d) => {
+            ctx.beginPath();
+            ctx.arc(F.x + (d.x + Math.sin(clock * 0.6 + d.z * 6) * 0.02) * F.w, F.y + ((d.y + clock * 0.05 * d.v) % 1) * F.h, 2 + d.z * 4, 0, 7);
+            ctx.fill();
+          });
+        } else {
+          ctx.strokeStyle = "rgba(255,255,255,.45)";
+          ctx.lineWidth = 1.5;
+          drops.forEach((d) => {
+            const y = ((d.y + clock * 0.9 * d.v) % 1) * F.h, x = d.x * F.w - y * 0.15;
+            ctx.beginPath(); ctx.moveTo(F.x + x, F.y + y); ctx.lineTo(F.x + x - 6, F.y + y + 26); ctx.stroke();
+          });
+        }
+        ctx.restore();
+      }
+
       function paint(s: Slot, count: number) {
         const c = s.painted.getContext("2d")!;
         const len = 46 - 30 * tempo, wd = 12 + 10 * softness;
@@ -194,6 +227,7 @@ export default function Scene({ day }: { day: DayPassport }) {
           if (W8[k] < 0.12) return;
           layers[k](Math.min(1, W8[k] * 1.8) * alpha, t, s, local);
         });
+        fx(alpha);
         ctx.restore();
       }
 
@@ -215,6 +249,7 @@ export default function Scene({ day }: { day: DayPassport }) {
       const loop = (now: number) => {
         if (dead) return;
         const t = ((now - start) / 1000) % LOOP;
+        clock = now / 1000;
         ctx.globalAlpha = 1; ctx.fillStyle = th.bg; ctx.fillRect(0, 0, W, H);
 
         const n = slots.length, seg = LOOP / n, idx = Math.floor(t / seg) % n, local = (t % seg) / seg;
