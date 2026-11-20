@@ -190,6 +190,12 @@ export default function Editor({
       case "wave":
         newItem = { id, kind: "wave", x: 50, y: 85, s: 1, r: 0 };
         break;
+      case "cassette":
+        newItem = { id, kind: "cassette", x: 45, y: 45, s: 1.1, r: -4, variant: "dark" };
+        break;
+      case "playlist":
+        newItem = { id, kind: "playlist", x: 75, y: 35, s: 1, r: 2 };
+        break;
       default:
         return;
     }
@@ -371,6 +377,8 @@ export default function Editor({
             { kind: "stamp", label: "💮 Штамп", desc: "Почтовая печать" },
             { kind: "place", label: "🏷️ Место", desc: "Бейдж локации" },
             { kind: "wave", label: "📊 Волна", desc: "Аудио-визуализатор" },
+            { kind: "cassette", label: "📼 Кассета", desc: "Ретро-кассета" },
+            { kind: "playlist", label: "📋 Треклист", desc: "Карточка плейлиста" },
           ].map((btn) => (
             <button
               key={btn.kind}

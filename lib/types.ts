@@ -39,7 +39,7 @@ export type Weather = { temp: number; wind: number; code: number; kind: WeatherK
 /** Координаты округлены до ~100 м, хранятся только в браузере пользователя. */
 export type Geo = { lat: number; lon: number; place?: string };
 
-export type ItemKind = "disc" | "weather" | "map" | "place" | "note" | "sticker" | "tape" | "stamp" | "wave";
+export type ItemKind = "disc" | "weather" | "map" | "place" | "note" | "sticker" | "tape" | "stamp" | "wave" | "cassette" | "playlist";
 /** Элемент, который пользователь расставляет на сцене. x, y — центр в % сцены. */
 export type SceneItem = {
   id: string;
@@ -64,6 +64,7 @@ export type DayPassport = {
   text: string;
   photos: string[]; // dataURL или путь в /public
   song: Song;
+  playlist?: Song[]; // Плейлист / саундтрек дня
   textMood: { valence: number; arousal: number; warmth: number };
   photoStats: PhotoStats;
   context: DayContext;

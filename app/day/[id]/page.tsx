@@ -17,6 +17,8 @@ export default function DayPage() {
   const [edit, setEdit] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
 
+  // Плейлист и текущий трек
+  const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [noPreview, setNoPreview] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -32,9 +34,12 @@ export default function DayPage() {
     });
   }, [id]);
 
-  // Песня включается сама при открытии дня или при первом клике
+  const playlist = day?.playlist && day.playlist.length > 0 ? day.playlist : day ? [day.song] : [];
+  const activeSong = playlist[currentSongIndex] || day?.song;
+
+  // Воспроизведение трека при смене активного трека в плейлисте
   useEffect(() => {
-    if (!day) return;
+    if (!activeSong) return;
     let dead = false;
     let off = () => {};
     const a = new Audio();
@@ -44,7 +49,7 @@ export default function DayPage() {
     setNoPreview(false);
 
     (async () => {
-      const dz = day.song.deezerId;
+      const dz = activeSong.deezerId;
       const j = dz ? await fetch(`/api/song?deezerId=${dz}`).then((r) => r.json()).catch(() => null) : null;
       if (dead) return;
       if (!j?.preview) return setNoPreview(true);
@@ -70,7 +75,7 @@ export default function DayPage() {
       a.src = "";
       speechSynthesis.cancel();
     };
-  }, [day]);
+  }, [activeSong]);
 
   function toggleMusic() {
     const a = audio.current;
@@ -80,6 +85,16 @@ export default function DayPage() {
       a.pause();
       setPlaying(false);
     }
+  }
+
+  function nextTrack() {
+    if (!playlist.length) return;
+    setCurrentSongIndex((prev) => (prev + 1) % playlist.length);
+  }
+
+  function prevTrack() {
+    if (!playlist.length) return;
+    setCurrentSongIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
   }
 
   function speak() {
@@ -121,20 +136,44 @@ export default function DayPage() {
         </Link>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Индикатор музыки */}
-          <button
-            onClick={toggleMusic}
-            disabled={noPreview}
-            className={`flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono text-xs transition ${
-              playing
-                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                : "border-[var(--border)] bg-white/60 text-muted hover:border-[var(--foreground)]"
-            } disabled:opacity-40`}
-            title={noPreview ? "Превью недоступно" : playing ? "Пауза" : "Играть"}
-          >
-            <span className={playing ? "animate-spin text-sm" : "text-sm"}>{playing ? "💿" : "▶"}</span>
-            <span>{noPreview ? "без звука" : playing ? "играет музыка" : "включить музыку"}</span>
-          </button>
+          {/* Мини-плеер с навигацией по трекам */}
+          <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-white/70 p-1 shadow-sm backdrop-blur">
+            {playlist.length > 1 && (
+              <button
+                onClick={prevTrack}
+                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-stone-200 transition text-xs"
+                title="Предыдущий трек"
+              >
+                ⏮
+              </button>
+            )}
+
+            <button
+              onClick={toggleMusic}
+              disabled={noPreview}
+              className={`flex items-center gap-2 rounded-full px-3.5 py-1 font-mono text-xs transition ${
+                playing
+                  ? "border border-emerald-600 bg-emerald-50 text-emerald-800"
+                  : "bg-white/60 text-muted hover:border-[var(--foreground)]"
+              } disabled:opacity-40`}
+              title={noPreview ? "Превью недоступно" : playing ? "Пауза" : "Играть"}
+            >
+              <span className={playing ? "animate-spin text-sm" : "text-sm"}>{playing ? "💿" : "▶"}</span>
+              <span className="truncate max-w-[150px]">
+                {noPreview ? "без звука" : activeSong?.title || "песня"}
+              </span>
+            </button>
+
+            {playlist.length > 1 && (
+              <button
+                onClick={nextTrack}
+                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-stone-200 transition text-xs"
+                title="Следующий трек"
+              >
+                ⏭
+              </button>
+            )}
+          </div>
 
           {/* Кнопка включения режима кастомизации */}
           <button
@@ -178,7 +217,7 @@ export default function DayPage() {
               {/* Генеративный живописный холст */}
               <Scene day={day} />
 
-              {/* Интерактивный слой: увеличенный винил, погода, карта, стикеры, заметки */}
+              {/* Интерактивный слой: увеличенный винил, погода, карта, стикеры, кассета */}
               <Overlay
                 day={day}
                 items={items}
@@ -189,11 +228,12 @@ export default function DayPage() {
                 playing={playing}
                 noPreview={noPreview}
                 onDisc={toggleMusic}
+                activeSong={activeSong}
               />
             </div>
 
             <div className="flex items-center justify-between font-mono text-xs text-muted px-1">
-              <span>Клик по винилу включает/выключает музыку</span>
+              <span>Клик по винилу ставит на паузу / играет</span>
               {day.weather && (
                 <span>
                   {GLYPH[day.weather.kind]} {day.weather.temp > 0 ? "+" : ""}
@@ -204,7 +244,7 @@ export default function DayPage() {
           </div>
         </BlurFade>
 
-        {/* Правая колонка с описанием дня и контекстом */}
+        {/* Правая колонка с описанием дня, плейлистом и контекстом */}
         <aside className="space-y-7">
           <div>
             <div className="flex items-center gap-3 font-mono text-xs text-muted">
@@ -228,14 +268,103 @@ export default function DayPage() {
             >
               🎙️ озвучить
             </button>
-            <a
-              href={day.song.link}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full border border-[var(--border)] px-5 py-2.5 font-mono text-sm text-muted hover:text-[var(--foreground)] hover:border-[var(--foreground)] transition"
-            >
-              ♪ открыть песню ↗
-            </a>
+            {activeSong && (
+              <a
+                href={activeSong.link}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-[var(--border)] px-5 py-2.5 font-mono text-sm text-muted hover:text-[var(--foreground)] hover:border-[var(--foreground)] transition"
+              >
+                ♪ открыть «{activeSong.title}» ↗
+              </a>
+            )}
+          </div>
+
+          {/* Саундтрек дня / Плейлист */}
+          <div className="rounded-xl border border-[var(--border)] bg-white/60 p-5 space-y-4 backdrop-blur shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">💿</span>
+                <h3 className="font-mono text-xs uppercase tracking-wider font-bold">
+                  Саундтрек дня ({playlist.length} {playlist.length === 1 ? "трек" : "трека"})
+                </h3>
+              </div>
+              {playlist.length > 1 && (
+                <div className="flex items-center gap-1 font-mono text-xs">
+                  <button
+                    onClick={prevTrack}
+                    className="rounded-full px-2 py-0.5 border border-stone-300 hover:bg-stone-100 transition"
+                    title="Предыдущий"
+                  >
+                    ⏮
+                  </button>
+                  <span className="text-muted text-[11px] px-1">
+                    {currentSongIndex + 1}/{playlist.length}
+                  </span>
+                  <button
+                    onClick={nextTrack}
+                    className="rounded-full px-2 py-0.5 border border-stone-300 hover:bg-stone-100 transition"
+                    title="Следующий"
+                  >
+                    ⏭
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Список треков плейлиста */}
+            <div className="divide-y divide-stone-200/60 font-mono">
+              {playlist.map((track, idx) => {
+                const isActive = idx === currentSongIndex;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (idx !== currentSongIndex) {
+                        setCurrentSongIndex(idx);
+                      } else {
+                        toggleMusic();
+                      }
+                    }}
+                    className={`group flex items-center justify-between py-2.5 px-3 rounded-lg cursor-pointer transition ${
+                      isActive ? "bg-stone-900 text-white shadow-sm" : "hover:bg-stone-100/80"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`text-xs ${isActive ? "text-rose-400 font-bold" : "text-muted"}`}>
+                        {isActive && playing ? "▶" : String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-serif font-semibold text-sm truncate">{track.title}</div>
+                        <div className={`text-xs truncate ${isActive ? "text-stone-300" : "text-muted"}`}>
+                          {track.artist} {track.year ? `· ${track.year}` : ""}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isActive && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          на виниле
+                        </span>
+                      )}
+                      <a
+                        href={track.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`p-1 text-xs opacity-60 hover:opacity-100 ${
+                          isActive ? "text-white" : "text-muted"
+                        }`}
+                        title="Открыть трек"
+                      >
+                        ↗
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Карточка погоды и метаданных дня */}

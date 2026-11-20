@@ -2,7 +2,7 @@
 import { useRef, type Dispatch, type SetStateAction } from "react";
 import { GLYPH, tile } from "@/lib/env";
 import { theme } from "@/lib/style";
-import type { DayPassport, SceneItem } from "@/lib/types";
+import type { DayPassport, SceneItem, Song } from "@/lib/types";
 
 /** Базовая ширина элемента в cqw (% ширины контейнера). */
 export const WIDTH: Record<SceneItem["kind"], number> = {
@@ -15,6 +15,8 @@ export const WIDTH: Record<SceneItem["kind"], number> = {
   tape: 28,
   stamp: 24,
   wave: 32,
+  cassette: 36,
+  playlist: 34,
 };
 
 const TOD = { morning: "утро", day: "день", evening: "вечер", night: "ночь" } as const;
@@ -113,14 +115,17 @@ function Body({
   day,
   playing,
   noPreview,
+  activeSong,
 }: {
   it: SceneItem;
   day: DayPassport;
   playing: boolean;
   noPreview: boolean;
+  activeSong?: Song;
 }) {
   const th = theme(day);
   const pal = day.style.params.palette;
+  const currentSong = activeSong || day.song;
   const card = {
     background: th.bg,
     color: th.fg,
@@ -132,7 +137,8 @@ function Body({
     case "disc": {
       const vKey = it.variant && VINYL_STYLES[it.variant] ? it.variant : "black";
       const vStyle = VINYL_STYLES[vKey];
-      const spinSpeed = (5.5 - 3.8 * day.style.params.tempo).toFixed(1);
+      const tempoVal = currentSong.features?.tempo ? Math.min(1, Math.max(0, (currentSong.features.tempo - 60) / 120)) : day.style.params.tempo;
+      const spinSpeed = (5.5 - 3.8 * tempoVal).toFixed(1);
 
       // Вариант центрального лейбла: photo | vintage | palette | minimal
       const labelType = it.text || "photo";
@@ -263,7 +269,7 @@ function Body({
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {day.song.title}
+                    {currentSong.title}
                   </span>
                   <span style={{ fontFamily: mono, fontSize: "1.2cqw", opacity: 0.7 }}>SIDE A</span>
                 </div>
@@ -370,7 +376,7 @@ function Body({
             }}
             className="group-hover:!opacity-100"
           >
-            ♪ {day.song.title} — {day.song.artist}
+            ♪ {currentSong.title} — {currentSong.artist}
           </div>
         </div>
       );
@@ -773,7 +779,7 @@ function Body({
               marginTop: "0.2cqw",
             }}
           >
-            {day.song.title}
+            {currentSong.title}
           </div>
           <div style={{ display: "flex", alignItems: "flex-end", gap: "0.4cqw", height: "3.5cqw", marginTop: "0.8cqw" }}>
             {[0.4, 0.8, 0.5, 0.9, 0.3, 0.7, 1.0, 0.6, 0.4, 0.8, 0.5].map((h, i) => (
@@ -792,6 +798,140 @@ function Body({
         </div>
       );
     }
+
+    case "cassette": {
+      return (
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            aspectRatio: "1.58",
+            borderRadius: "1.4cqw",
+            background: it.variant === "cream" ? "#f5f0e6" : "#17171a",
+            color: it.variant === "cream" ? "#222" : "#f4f4f5",
+            boxShadow: "0 1.5cqw 4cqw rgba(0,0,0,0.5), inset 0 0.2cqw 0.4cqw rgba(255,255,255,0.15)",
+            border: "0.25cqw solid rgba(255,255,255,0.14)",
+            padding: "1.2cqw",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          }}
+        >
+          {/* 4 винта по углам */}
+          <span style={{ position: "absolute", top: "0.8cqw", left: "0.8cqw", width: "1.2cqw", height: "1.2cqw", borderRadius: "50%", background: "#444", border: "0.1cqw solid #777" }} />
+          <span style={{ position: "absolute", top: "0.8cqw", right: "0.8cqw", width: "1.2cqw", height: "1.2cqw", borderRadius: "50%", background: "#444", border: "0.1cqw solid #777" }} />
+          <span style={{ position: "absolute", bottom: "0.8cqw", left: "0.8cqw", width: "1.2cqw", height: "1.2cqw", borderRadius: "50%", background: "#444", border: "0.1cqw solid #777" }} />
+          <span style={{ position: "absolute", bottom: "0.8cqw", right: "0.8cqw", width: "1.2cqw", height: "1.2cqw", borderRadius: "50%", background: "#444", border: "0.1cqw solid #777" }} />
+
+          {/* Наклейка с названием кассеты */}
+          <div
+            style={{
+              background: pal[1] ?? "#fef08a",
+              color: "#1c1917",
+              padding: "0.6cqw 1.2cqw",
+              borderRadius: "0.4cqw",
+              fontFamily: mono,
+              boxShadow: "inset 0 0 0.5cqw rgba(0,0,0,0.1)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.6cqw", opacity: 0.8, letterSpacing: "0.1em" }}>
+              <span>MIXTAPE // DAY SOUNDTRACK</span>
+              <span>SIDE A</span>
+            </div>
+            <div style={{ fontFamily: hand, fontSize: "4.2cqw", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {it.text || currentSong.title}
+            </div>
+          </div>
+
+          {/* Окошко с двумя вращающимися катушками */}
+          <div
+            style={{
+              position: "relative",
+              margin: "0.6cqw auto",
+              width: "75%",
+              height: "8cqw",
+              borderRadius: "0.8cqw",
+              background: "rgba(0,0,0,0.85)",
+              border: "0.2cqw solid rgba(255,255,255,0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-around",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ position: "absolute", inset: "32% 16%", background: "#3b2112", borderRadius: "1cqw" }} />
+            <div
+              className={playing ? "animate-spin" : ""}
+              style={{
+                width: "5cqw",
+                aspectRatio: "1",
+                borderRadius: "50%",
+                background: "#f1f5f9",
+                border: "0.4cqw solid #94a3b8",
+                display: "grid",
+                placeItems: "center",
+                animationDuration: "2.8s",
+                zIndex: 2,
+              }}
+            >
+              <div style={{ width: "2.2cqw", aspectRatio: "1", borderRadius: "50%", background: "#0f172a" }} />
+            </div>
+            <div
+              className={playing ? "animate-spin" : ""}
+              style={{
+                width: "5cqw",
+                aspectRatio: "1",
+                borderRadius: "50%",
+                background: "#f1f5f9",
+                border: "0.4cqw solid #94a3b8",
+                display: "grid",
+                placeItems: "center",
+                animationDuration: "2.8s",
+                zIndex: 2,
+              }}
+            >
+              <div style={{ width: "2.2cqw", aspectRatio: "1", borderRadius: "50%", background: "#0f172a" }} />
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", fontFamily: mono, fontSize: "1.8cqw", letterSpacing: "0.15em", opacity: 0.7 }}>
+            HIGH OUTPUT · STEREO C-90
+          </div>
+        </div>
+      );
+    }
+
+    case "playlist": {
+      const tracklist = day.playlist && day.playlist.length > 0 ? day.playlist : [day.song];
+      return (
+        <div
+          style={{
+            ...card,
+            padding: "1.8cqw 2cqw",
+            borderRadius: "1.4cqw",
+            fontFamily: mono,
+            minWidth: "28cqw",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "0.15cqw dashed currentColor", paddingBottom: "0.6cqw", marginBottom: "1cqw", fontSize: "1.8cqw", letterSpacing: "0.15em", textTransform: "uppercase", opacity: 0.75 }}>
+            <span>TRACKLIST</span>
+            <span>{tracklist.length} {tracklist.length === 1 ? "TRACK" : "TRACKS"}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.6cqw" }}>
+            {tracklist.slice(0, 5).map((s, idx) => {
+              const isActive = currentSong.title === s.title;
+              return (
+                <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.8cqw", fontSize: "2.4cqw", lineHeight: 1.2, fontWeight: isActive ? 700 : 400 }}>
+                  <span style={{ opacity: 0.6, fontSize: "2cqw" }}>{String(idx + 1).padStart(2, "0")}.</span>
+                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</span>
+                  {isActive && <span style={{ color: pal[0] ?? "#e11d48", fontSize: "2cqw" }}>▶</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
   }
 }
 
@@ -805,6 +945,7 @@ type Props = {
   playing: boolean;
   noPreview: boolean;
   onDisc: () => void;
+  activeSong?: Song;
 };
 
 /** Слой элементов поверх сцены: в режиме редактирования элементы свободно перетаскиваются мышью/тачем. */
@@ -818,6 +959,7 @@ export default function Overlay({
   playing,
   noPreview,
   onDisc,
+  activeSong,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
 
@@ -913,7 +1055,7 @@ export default function Overlay({
               transition: edit ? "none" : "transform 0.15s ease",
             }}
           >
-            <Body it={it} day={day} playing={playing} noPreview={noPreview} />
+            <Body it={it} day={day} playing={playing} noPreview={noPreview} activeSong={activeSong} />
           </div>
         );
       })}

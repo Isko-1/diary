@@ -25,8 +25,20 @@ export default function NewDay() {
   const router = useRouter();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [link, setLink] = useState("");
+  const [songs, setSongs] = useState<string[]>([""]);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+
+  function addSongField() {
+    setSongs((prev) => [...prev, ""]);
+  }
+
+  function removeSongField(idx: number) {
+    setSongs((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function updateSongField(idx: number, val: string) {
+    setSongs((prev) => prev.map((s, i) => (i === idx ? val : s)));
+  }
 
   // Геолокация и погода
   const [geo, setGeo] = useState<Geo | null>(null);
@@ -138,8 +150,9 @@ export default function NewDay() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
-    if (text.trim().length < 5 || !files.length || !link.trim()) {
-      return setErr("Нужны текст, хотя бы одно фото и песня.");
+    const validSongs = songs.map((s) => s.trim()).filter(Boolean);
+    if (text.trim().length < 5 || !files.length || !validSongs.length) {
+      return setErr("Нужны текст, хотя бы одно фото и как минимум одна песня.");
     }
 
     try {
@@ -147,11 +160,13 @@ export default function NewDay() {
       const photos = await Promise.all(files.map((f) => fileToDataUrl(f)));
       const photoStats = await analyzeAll(photos);
 
-      setBusy("Слушаю текст и песню…");
-      const [a, song] = (await Promise.all([
+      setBusy("Слушаю текст и плейлист дня…");
+      const [a, ...fetchedSongs] = (await Promise.all([
         post("/api/analyze-day", { text }),
-        post("/api/song", { link }),
-      ])) as [any, Song];
+        ...validSongs.map((link) => post("/api/song", { link })),
+      ])) as [any, ...Song[]];
+
+      const mainSong = fetchedSongs[0];
 
       const base = {
         id: crypto.randomUUID(),
@@ -159,7 +174,8 @@ export default function NewDay() {
         title: a.title,
         text,
         photos,
-        song,
+        song: mainSong,
+        playlist: fetchedSongs,
         textMood: a.textMood,
         photoStats,
         context: a.context,
@@ -168,7 +184,7 @@ export default function NewDay() {
       };
 
       const { mood, why } = fuse(base);
-      let { style, why: why2 } = pickStyle(mood, song, a.context, photoStats);
+      let { style, why: why2 } = pickStyle(mood, mainSong, a.context, photoStats);
 
       // Если есть погода — модифицируем визуальный стиль и текстуру картины
       let extraWhy: string[] = [];
@@ -248,15 +264,54 @@ export default function NewDay() {
         </BlurFade>
 
         <BlurFade delay={0.2}>
-          <label className="block font-mono text-xs text-muted">
-            ПЕСНЯ (ссылка YouTube / Spotify или «артист - название»)
-            <input
-              className={field + " mt-2"}
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              placeholder="https://open.spotify.com/track/… или Queen - Bohemian Rhapsody"
-            />
-          </label>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="font-mono text-xs text-muted uppercase tracking-wider font-semibold">
+                🎵 ПЛЕЙЛИСТ ДНЯ (ссылка YouTube / Spotify или «артист - название»)
+              </label>
+              <span className="font-mono text-[11px] text-muted">
+                {songs.length} {songs.length === 1 ? "трек" : "трека"}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {songs.map((s, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <span className="font-mono text-xs text-muted w-6 text-right">
+                    {String(idx + 1).padStart(2, "0")}.
+                  </span>
+                  <input
+                    className={field + " flex-1"}
+                    value={s}
+                    onChange={(e) => updateSongField(idx, e.target.value)}
+                    placeholder={
+                      idx === 0
+                        ? "Главный трек дня (например: Depeche Mode - Enjoy The Silence)"
+                        : `Дополнительный трек #${idx + 1}`
+                    }
+                  />
+                  {songs.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeSongField(idx)}
+                      className="rounded-lg p-2.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      title="Удалить трек"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={addSongField}
+              className="flex items-center gap-2 rounded-lg border border-dashed border-[var(--border)] bg-white/40 px-4 py-2 font-mono text-xs text-muted hover:border-[var(--foreground)] hover:text-[var(--foreground)] transition"
+            >
+              <span>+ Добавить трек в саундтрек дня</span>
+            </button>
+          </div>
         </BlurFade>
 
         {/* Секция: Погода и геолокация */}
