@@ -38,18 +38,62 @@ export default function NewDay() {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
 
-  // Автоматическое определение по GPS (с разрешения пользователя)
+  // При смене даты пользователем: если геолокация уже есть, автоматически перезапрашиваем погоду за новую дату
+  async function handleDateChange(newDate: string) {
+    setDate(newDate);
+    if (geo) {
+      setGeoLoading(true);
+      setGeoMsg(`Запрашиваем погоду строго за выбранную дату ${newDate}…`);
+      try {
+        const w = await fetchWeather(geo, newDate);
+        setWeather(w);
+        if (w) {
+          setGeoMsg(`Погода обновлена за ${newDate}: ${w.temp > 0 ? "+" : ""}${w.temp}°C, ${w.label}`);
+        } else {
+          setGeoMsg(`Данные о погоде за ${newDate} недоступны в архиве.`);
+        }
+      } catch {
+        setGeoMsg(`Ошибка получения погоды за ${newDate}.`);
+      } finally {
+        setGeoLoading(false);
+      }
+    }
+  }
+
+  // Ручной принудительный пересчет погоды по текущей выбранной дате
+  async function refreshWeatherForDate() {
+    if (!geo) return;
+    setGeoLoading(true);
+    setGeoMsg(`Обновляем погоду за ${date}…`);
+    try {
+      const w = await fetchWeather(geo, date);
+      setWeather(w);
+      if (w) {
+        setGeoMsg(`Погода загружена за ${date}: ${w.temp > 0 ? "+" : ""}${w.temp}°C, ${w.label}`);
+      }
+    } catch {
+      setGeoMsg(`Не удалось получить погоду за ${date}`);
+    } finally {
+      setGeoLoading(false);
+    }
+  }
+
+  // Автоматическое определение по GPS (с разрешения пользователя) СТРОГО за выбранную дату
   async function detectLocation() {
     setGeoLoading(true);
-    setGeoMsg("Запрашиваем разрешение на геолокацию в браузере…");
+    setGeoMsg(`Запрашиваем геолокацию и погоду за выбранную дату (${date})…`);
     try {
       const g = await getGeo();
-      setGeoMsg("Координаты получены. Определяем район и погоду…");
+      setGeoMsg(`Координаты получены. Запрашиваем архив/прогноз погоды за ${date}…`);
       const [place, w] = await Promise.all([reverse(g), fetchWeather(g, date)]);
       const resolvedGeo = { ...g, place: place || g.place };
       setGeo(resolvedGeo);
       setWeather(w);
-      setGeoMsg(`Локация определена: ${resolvedGeo.place || `${g.lat}, ${g.lon}`}`);
+      setGeoMsg(
+        w
+          ? `Успешно: ${resolvedGeo.place || `${g.lat}, ${g.lon}`} · погода за ${date}: ${w.temp > 0 ? "+" : ""}${w.temp}°C, ${w.label}`
+          : `Локация: ${resolvedGeo.place || `${g.lat}, ${g.lon}`}. За ${date} данных погоды нет.`
+      );
     } catch (e: any) {
       setGeoMsg(`Ошибка: ${e?.message || String(e)}`);
     } finally {
@@ -57,11 +101,11 @@ export default function NewDay() {
     }
   }
 
-  // Ручной поиск по названию города
+  // Ручной поиск по названию города СТРОГО за выбранную дату
   async function searchCity() {
     if (!geoCity.trim()) return;
     setGeoLoading(true);
-    setGeoMsg("Ищем город через Open-Meteo…");
+    setGeoMsg(`Ищем город и проверяем погоду за выбранную дату ${date}…`);
     try {
       const g = await geocode(geoCity);
       if (!g) {
@@ -72,7 +116,11 @@ export default function NewDay() {
       const w = await fetchWeather(g, date);
       setGeo(g);
       setWeather(w);
-      setGeoMsg(`Локация сохранена: ${g.place}`);
+      setGeoMsg(
+        w
+          ? `Локация: ${g.place} · погода за ${date}: ${w.temp > 0 ? "+" : ""}${w.temp}°C, ${w.label}`
+          : `Локация сохранена: ${g.place}.`
+      );
     } catch (e: any) {
       setGeoMsg(`Ошибка: ${e?.message || String(e)}`);
     } finally {
@@ -122,7 +170,7 @@ export default function NewDay() {
       const { mood, why } = fuse(base);
       let { style, why: why2 } = pickStyle(mood, song, a.context, photoStats);
 
-      // Если есть погода — модифицируем визуальный стиль и текстуру
+      // Если есть погода — модифицируем визуальный стиль и текстуру картины
       let extraWhy: string[] = [];
       if (weather) {
         const tw = weatherTweak(style, weather);
@@ -161,6 +209,21 @@ export default function NewDay() {
       </BlurFade>
 
       <form onSubmit={submit} className="mt-8 space-y-6">
+        {/* ДАТА вынесена наверх, чтобы погода сразу привязывалась к выбранному дню */}
+        <BlurFade delay={0.05}>
+          <div className="rounded-xl border border-[var(--border)] bg-white/50 p-4">
+            <label className="block font-mono text-xs text-muted font-semibold uppercase tracking-wider">
+              📅 ДАТА ВОСПОМИНАНИЯ (погода запрашивается именно за этот день)
+              <input
+                className={field + " mt-2 font-mono text-sm"}
+                type="date"
+                value={date}
+                onChange={(e) => handleDateChange(e.target.value)}
+              />
+            </label>
+          </div>
+        </BlurFade>
+
         <BlurFade delay={0.1}>
           <label className="block font-mono text-xs text-muted mb-2">ИСТОРИЯ ДНЯ</label>
           <textarea
@@ -196,24 +259,12 @@ export default function NewDay() {
           </label>
         </BlurFade>
 
-        <BlurFade delay={0.25}>
-          <label className="block font-mono text-xs text-muted">
-            ДАТА
-            <input
-              className={field + " mt-2"}
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </label>
-        </BlurFade>
-
         {/* Секция: Погода и геолокация */}
-        <BlurFade delay={0.3}>
+        <BlurFade delay={0.25}>
           <div className="rounded-xl border border-[var(--border)] bg-white/40 p-5 space-y-3">
             <div className="flex items-center justify-between">
               <label className="font-mono text-xs text-muted uppercase tracking-wider font-semibold">
-                📍 Геолокация и погода (по желанию)
+                📍 Погода и локация (за дату {date})
               </label>
               {(geo || weather) && (
                 <button
@@ -226,22 +277,33 @@ export default function NewDay() {
               )}
             </div>
 
-            {/* Карточка уже определенной погоды */}
+            {/* Карточка погоды с указанием даты */}
             {weather || geo ? (
-              <div className="rounded-lg border border-emerald-300 bg-emerald-50/80 p-4 space-y-1">
-                <div className="flex items-center gap-3">
-                  {weather && <span className="text-3xl">{GLYPH[weather.kind]}</span>}
-                  <div>
-                    <div className="font-semibold text-stone-900">
-                      {weather ? `${weather.temp > 0 ? "+" : ""}${weather.temp}°C, ${weather.label}` : "Погода загружается"}
-                      {geo?.place && ` · ${geo.place}`}
-                    </div>
-                    {weather && (
-                      <div className="font-mono text-xs text-stone-600">
-                        Ветер: {weather.wind} км/ч · Координаты: {geo?.lat}, {geo?.lon}
+              <div className="rounded-lg border border-emerald-300 bg-emerald-50/80 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {weather && <span className="text-3xl">{GLYPH[weather.kind]}</span>}
+                    <div>
+                      <div className="font-semibold text-stone-900">
+                        {weather
+                          ? `${weather.temp > 0 ? "+" : ""}${weather.temp}°C, ${weather.label}`
+                          : "Погода для этой даты загружается"}
+                        {geo?.place && ` · ${geo.place}`}
                       </div>
-                    )}
+                      <div className="font-mono text-xs text-stone-600">
+                        Погода именно за дату: <strong className="text-emerald-800">{date}</strong>
+                        {weather && ` · Ветер ${weather.wind} км/ч`}
+                      </div>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={refreshWeatherForDate}
+                    disabled={geoLoading}
+                    className="rounded-full border border-emerald-600 bg-white px-3 py-1 font-mono text-xs text-emerald-800 hover:bg-emerald-50 transition"
+                  >
+                    🔄 Обновить за {date}
+                  </button>
                 </div>
               </div>
             ) : (
@@ -253,7 +315,9 @@ export default function NewDay() {
                   className="w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-white px-4 py-2.5 font-mono text-xs font-medium hover:border-[var(--foreground)] transition disabled:opacity-50"
                 >
                   <span>🛰️</span>
-                  <span>{geoLoading ? "Определяем местоположение…" : "Определить по GPS (запрос разрешения)"}</span>
+                  <span>
+                    {geoLoading ? "Загружаем погоду…" : `Определить по GPS погоду за выбранную дату (${date})`}
+                  </span>
                 </button>
 
                 <div className="flex items-center gap-2">
@@ -267,7 +331,7 @@ export default function NewDay() {
                         searchCity();
                       }
                     }}
-                    placeholder="Или введите город (Москва, Алматы, Рим...)"
+                    placeholder="Или укажите город (Москва, Сочи, Рим...)"
                     className="flex-1 rounded-lg border border-[var(--border)] bg-white/60 px-3 py-2 font-mono text-xs outline-none focus:border-[var(--foreground)]"
                   />
                   <button

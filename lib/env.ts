@@ -105,34 +105,56 @@ export function kindOf(c: number): [WeatherKind, string] {
 }
 
 /**
- * Получение погоды на конкретную дату через Open-Meteo (без API-ключа).
- * Автоматически переключается между актуальным прогнозом (Forecast) и архивом (Archive).
+ * Получение погоды СТРОГО на конкретную выбранную пользователем дату (YYYY-MM-DD).
+ * Сначала опрашивается прогноз Open-Meteo (охватывает даты до 3 месяцев назад и до 14 дней вперед).
+ * Если дата дальше в прошлом — автоматически опрашивается официальный архив Open-Meteo Archive API.
  */
 export async function fetchWeather(g: Geo, date: string): Promise<Weather | null> {
-  const isRecentOrFuture = (() => {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const q = `latitude=${g.lat}&longitude=${g.lon}&start_date=${date}&end_date=${date}&timezone=auto&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max`;
+
+  // 1. Пробуем Forecast API (недавние даты, сегодня и ближайшие дни)
+  try {
+    const res = await get(`https://api.open-meteo.com/v1/forecast?${q}`);
+    const d = res.daily;
+    if (d?.weather_code?.[0] != null) {
+      const code = d.weather_code[0];
+      const [kind, label] = kindOf(code);
+      const temp = Math.round((d.temperature_2m_max[0] + d.temperature_2m_min[0]) / 2);
+      const wind = Math.round(d.wind_speed_10m_max?.[0] ?? 0);
+      return { code, kind, label, temp, wind };
+    }
+  } catch {}
+
+  // 2. Пробуем Archive API (для дат в прошлом: месяц назад, год назад, 5 лет назад)
+  try {
+    const res = await get(`https://archive-api.open-meteo.com/v1/archive?${q}`);
+    const d = res.daily;
+    if (d?.weather_code?.[0] != null) {
+      const code = d.weather_code[0];
+      const [kind, label] = kindOf(code);
+      const temp = Math.round((d.temperature_2m_max[0] + d.temperature_2m_min[0]) / 2);
+      const wind = Math.round(d.wind_speed_10m_max?.[0] ?? 0);
+      return { code, kind, label, temp, wind };
+    }
+  } catch {}
+
+  // 3. Только если выбран СЕГОДНЯШНИЙ день и дневная сводка ещё формируется — берём текущий срез
+  const isToday = (() => {
     try {
-      const today = new Date();
-      const target = new Date(date);
-      const diffDays = (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-      return diffDays >= -5 && diffDays <= 14;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      return date === todayStr;
     } catch {
-      return true;
+      return false;
     }
   })();
 
-  // 1. Для недавних дат или сегодня — forecast API
-  if (isRecentOrFuture) {
+  if (isToday) {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max&timezone=auto&start_date=${date}&end_date=${date}`;
-      const res = await get(url);
-      const d = res.daily;
-      if (d?.weather_code?.[0] != null) {
-        const code = d.weather_code[0];
-        const [kind, label] = kindOf(code);
-        const temp = Math.round((d.temperature_2m_max[0] + d.temperature_2m_min[0]) / 2);
-        const wind = Math.round(d.wind_speed_10m_max?.[0] ?? 0);
-        return { code, kind, label, temp, wind };
-      }
+      const res = await get(
+        `https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`,
+      );
       if (res.current?.weather_code != null) {
         const code = res.current.weather_code;
         const [kind, label] = kindOf(code);
@@ -146,38 +168,6 @@ export async function fetchWeather(g: Geo, date: string): Promise<Weather | null
       }
     } catch {}
   }
-
-  // 2. Для архивных дат — historical archive API
-  try {
-    const q = `latitude=${g.lat}&longitude=${g.lon}&start_date=${date}&end_date=${date}&timezone=auto&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max`;
-    const res = await get(`https://archive-api.open-meteo.com/v1/archive?${q}`);
-    const d = res.daily;
-    if (d?.weather_code?.[0] != null) {
-      const code = d.weather_code[0];
-      const [kind, label] = kindOf(code);
-      const temp = Math.round((d.temperature_2m_max[0] + d.temperature_2m_min[0]) / 2);
-      const wind = Math.round(d.wind_speed_10m_max?.[0] ?? 0);
-      return { code, kind, label, temp, wind };
-    }
-  } catch {}
-
-  // 3. Fallback: базовый текущий прогноз по координатам
-  try {
-    const res = await get(
-      `https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`,
-    );
-    if (res.current?.weather_code != null) {
-      const code = res.current.weather_code;
-      const [kind, label] = kindOf(code);
-      return {
-        code,
-        kind,
-        label,
-        temp: Math.round(res.current.temperature_2m),
-        wind: Math.round(res.current.wind_speed_10m ?? 0),
-      };
-    }
-  } catch {}
 
   return null;
 }

@@ -47,6 +47,7 @@ export default function Editor({
 }: Props) {
   const [savedTick, setSavedTick] = useState(false);
   const [geoModal, setGeoModal] = useState(false);
+  const [modalDate, setModalDate] = useState(day.date);
   const [geoCity, setGeoCity] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
@@ -197,22 +198,22 @@ export default function Editor({
     setSel(id);
   }
 
-  // Определение геолокации и погоды внутри редактора
+  // Определение геолокации и погоды строго за выбранную дату
   async function detectLocation() {
     setGeoLoading(true);
-    setGeoMsg("Запрашиваем геолокацию в браузере…");
+    setGeoMsg(`Запрашиваем геолокацию и погоду за дату ${modalDate}…`);
     try {
       const g = await getGeo();
-      setGeoMsg("Определяем район и погоду…");
-      const [place, w] = await Promise.all([reverse(g), fetchWeather(g, day.date)]);
+      setGeoMsg(`Координаты получены. Запрашиваем погоду за ${modalDate}…`);
+      const [place, w] = await Promise.all([reverse(g), fetchWeather(g, modalDate)]);
       const resolvedGeo = { ...g, place: place || g.place };
 
-      applyGeoAndWeather(resolvedGeo, w);
-      setGeoMsg(`Успешно: ${resolvedGeo.place || `${g.lat}, ${g.lon}`}`);
-      setTimeout(() => {
-        setGeoModal(false);
-        setGeoMsg("");
-      }, 1200);
+      applyGeoAndWeather(resolvedGeo, w, modalDate);
+      setGeoMsg(
+        w
+          ? `Успешно: ${resolvedGeo.place || `${g.lat}, ${g.lon}`} · погода за ${modalDate}: ${w.temp > 0 ? "+" : ""}${w.temp}°C, ${w.label}`
+          : `Локация определена: ${resolvedGeo.place || `${g.lat}, ${g.lon}`}`
+      );
     } catch (err: any) {
       setGeoMsg(`Ошибка: ${err?.message || String(err)}`);
     } finally {
@@ -220,25 +221,25 @@ export default function Editor({
     }
   }
 
-  // Ручной поиск города внутри редактора
+  // Ручной поиск города строго за выбранную дату
   async function searchCity() {
     if (!geoCity.trim()) return;
     setGeoLoading(true);
-    setGeoMsg("Ищем город через Open-Meteo…");
+    setGeoMsg(`Ищем город и погоду за ${modalDate}…`);
     try {
       const g = await geocode(geoCity);
       if (!g) {
         setGeoMsg("Город не найден. Попробуйте уточнить запрос.");
         return;
       }
-      setGeoMsg(`Найден: ${g.place}. Запрашиваем погоду…`);
-      const w = await fetchWeather(g, day.date);
-      applyGeoAndWeather(g, w);
-      setGeoMsg(`Успешно: ${g.place}`);
-      setTimeout(() => {
-        setGeoModal(false);
-        setGeoMsg("");
-      }, 1200);
+      setGeoMsg(`Найден: ${g.place}. Запрашиваем погоду за ${modalDate}…`);
+      const w = await fetchWeather(g, modalDate);
+      applyGeoAndWeather(g, w, modalDate);
+      setGeoMsg(
+        w
+          ? `Успешно: ${g.place} · погода за ${modalDate}: ${w.temp > 0 ? "+" : ""}${w.temp}°C, ${w.label}`
+          : `Локация сохранена: ${g.place}`
+      );
     } catch (err: any) {
       setGeoMsg(`Ошибка: ${err?.message || String(err)}`);
     } finally {
@@ -246,7 +247,29 @@ export default function Editor({
     }
   }
 
-  function applyGeoAndWeather(geo: DayPassport["geo"], weather: Weather | null) {
+  // Обновление погоды при изменении даты в модалке
+  async function handleModalDateChange(newDate: string) {
+    setModalDate(newDate);
+    if (day.geo) {
+      setGeoLoading(true);
+      setGeoMsg(`Запрашиваем архив/прогноз погоды за ${newDate}…`);
+      try {
+        const w = await fetchWeather(day.geo, newDate);
+        applyGeoAndWeather(day.geo, w, newDate);
+        setGeoMsg(
+          w
+            ? `Погода обновлена за ${newDate}: ${w.temp > 0 ? "+" : ""}${w.temp}°C, ${w.label}`
+            : `Данные о погоде за ${newDate} недоступны.`
+        );
+      } catch {
+        setGeoMsg(`Ошибка обновления погоды за ${newDate}`);
+      } finally {
+        setGeoLoading(false);
+      }
+    }
+  }
+
+  function applyGeoAndWeather(geo: DayPassport["geo"], weather: Weather | null, targetDate = modalDate) {
     setDay((prev) => {
       if (!prev) return prev;
       let nextStyle = prev.style;
@@ -258,6 +281,7 @@ export default function Editor({
       }
       return {
         ...prev,
+        date: targetDate,
         geo,
         weather: weather ?? prev.weather,
         style: nextStyle,
@@ -749,13 +773,42 @@ export default function Editor({
             </div>
 
             <div className="space-y-4">
+              {/* Выбор даты для проверки погоды */}
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-3 space-y-1.5">
+                <label className="block font-mono text-xs text-stone-600 font-semibold uppercase tracking-wider">
+                  📅 Дата для архива погоды:
+                </label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="date"
+                    value={modalDate}
+                    onChange={(e) => handleModalDateChange(e.target.value)}
+                    className="flex-1 rounded-lg border border-[var(--border)] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-stone-800"
+                  />
+                  {day.geo && (
+                    <button
+                      type="button"
+                      disabled={geoLoading}
+                      onClick={() => handleModalDateChange(modalDate)}
+                      className="rounded-lg border border-stone-800 bg-stone-100 px-3 py-2 font-mono text-xs hover:bg-stone-200 transition"
+                      title="Перезапросить погоду за эту дату"
+                    >
+                      🔄
+                    </button>
+                  )}
+                </div>
+                <p className="font-mono text-[10px] text-muted">
+                  Погода будет найдена именно за этот день (архив Open-Meteo).
+                </p>
+              </div>
+
               <button
                 disabled={geoLoading}
                 onClick={detectLocation}
                 className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-stone-900 px-4 py-3 font-mono text-sm text-white transition hover:bg-stone-800 disabled:opacity-50"
               >
                 <span>🛰️</span>
-                <span>Определить по GPS (разрешение браузера)</span>
+                <span>Определить по GPS погоду за {modalDate}</span>
               </button>
 
               <div className="relative flex items-center justify-center">
@@ -791,7 +844,7 @@ export default function Editor({
               )}
 
               {day.weather && (
-                <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-3 flex items-center justify-between">
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <span className="text-3xl">{GLYPH[day.weather.kind]}</span>
                     <div>
@@ -799,13 +852,13 @@ export default function Editor({
                         {day.weather.temp > 0 ? "+" : ""}
                         {day.weather.temp}°C, {day.weather.label}
                       </div>
-                      <div className="text-xs text-muted">
-                        Ветер {day.weather.wind} км/ч · {day.geo?.place || "Локация сохранена"}
+                      <div className="text-xs text-muted font-mono">
+                        Погода за дату: <strong>{day.date}</strong> · {day.geo?.place || "Локация сохранена"}
                       </div>
                     </div>
                   </div>
-                  <span className="text-xs font-mono text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                    Активно
+                  <span className="text-xs font-mono text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded font-semibold">
+                    Сохранено
                   </span>
                 </div>
               )}
