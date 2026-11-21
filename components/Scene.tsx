@@ -65,10 +65,16 @@ export default function Scene({ day, activeSong }: { day: DayPassport; activeSon
     const palRgb = pal.map(rgbOf);
     const W8 = day.style.weights;
     const top = dominant(W8);
-    // Определяем активный фильтр: "auto" или undefined = LLM-выбор (живопись), иначе — выбор пользователя
+    // Определяем активный фильтр: "auto" или undefined = подбор по настроению, иначе — явный выбор
     const photoFilter = day.style.photoFilter ?? "auto";
     const isCssFilter = photoFilter !== "auto" && photoFilter in CSS_FILTERS;
     const forcedTechnique = (!isCssFilter && photoFilter !== "auto") ? (photoFilter as Technique) : null;
+    // Название текущего активного художественного стиля для отображения на постере
+    const activeTechniqueName = forcedTechnique
+      ? techniqueName(forcedTechnique)
+      : isCssFilter
+      ? (photoFilter === "film" ? "Плёнка" : photoFilter === "bw" ? "Ч/Б" : photoFilter === "warm" ? "Тёплый тон" : photoFilter === "cool" ? "Холодный тон" : "Оригинал")
+      : techniqueName(top);
 
     (async () => {
       try {
@@ -320,7 +326,7 @@ export default function Scene({ day, activeSong }: { day: DayPassport; activeSon
         ctx.textAlign = "left"; ctx.font = '500 28px "JetBrains Mono", monospace';
         ctx.fillText(`${dd}.${mm}.${yy}`, F.x, 120);
         ctx.textAlign = "right"; ctx.globalAlpha = 0.6; ctx.font = '500 22px "JetBrains Mono", monospace';
-        ctx.fillText(`// ${techniqueName(top).toUpperCase()}`, F.x + F.w, 120);
+        ctx.fillText(`// ${activeTechniqueName.toUpperCase()}`, F.x + F.w, 120);
         ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.font = '500 56px Fraunces, serif';
         wrap(day.title, F.w).slice(0, 2).forEach((l, i) => ctx.fillText(l, F.x, F.y + F.h + 90 + i * 62));
         const playingSong = activeSong || day.song;
@@ -329,10 +335,12 @@ export default function Scene({ day, activeSong }: { day: DayPassport; activeSon
         while (ctx.measureText(sig).width > F.w && fs > 28) { fs -= 2; ctx.font = `${fs}px Caveat, cursive`; }
         ctx.globalAlpha = 0.85; ctx.fillText(sig, F.x, 1270);
 
-        // единое зерно поверх всего
-        if (frame++ % 3 === 0) { offX = Math.random() * 256; offY = Math.random() * 256; }
-        ctx.save(); ctx.globalAlpha = grain; ctx.globalCompositeOperation = th.dark ? "screen" : "multiply";
-        ctx.translate(-offX, -offY); ctx.fillStyle = noisePat; ctx.fillRect(0, 0, W + 256, H + 256); ctx.restore();
+        // единое деликатное зерно поверх всего (только если не отключено)
+        if (grain > 0.005) {
+          if (frame++ % 4 === 0) { offX = Math.random() * 256; offY = Math.random() * 256; }
+          ctx.save(); ctx.globalAlpha = Math.min(0.04, grain * 0.4); ctx.globalCompositeOperation = th.dark ? "screen" : "multiply";
+          ctx.translate(-offX, -offY); ctx.fillStyle = noisePat; ctx.fillRect(0, 0, W + 256, H + 256); ctx.restore();
+        }
 
         raf = requestAnimationFrame(loop);
       };

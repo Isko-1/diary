@@ -8,7 +8,7 @@ import { MagicCard } from "@/components/ui/magic-card";
 import { GLYPH } from "@/lib/env";
 import { listDays } from "@/lib/store";
 import { dominant, techniqueName } from "@/lib/style";
-import type { DayPassport } from "@/lib/types";
+import type { DayPassport, Technique } from "@/lib/types";
 
 const GRAIN =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
@@ -78,9 +78,23 @@ function DayCard({ d }: { d: DayPassport }) {
             </div>
           </div>
 
-          {/* Плашка техники */}
+          {/* Плашка стиля */}
           <span className="absolute left-3 top-3 rounded-full bg-black/35 px-2.5 py-1 font-mono text-[11px] tracking-wider text-white backdrop-blur">
-            {techniqueName(dominant(d.style.weights)).toUpperCase()}
+            {(
+              d.style.photoFilter && d.style.photoFilter !== "auto"
+                ? d.style.photoFilter === "film"
+                  ? "ПЛЁНКА"
+                  : d.style.photoFilter === "bw"
+                  ? "Ч/Б"
+                  : d.style.photoFilter === "warm"
+                  ? "ТЕПЛО"
+                  : d.style.photoFilter === "cool"
+                  ? "ХОЛОД"
+                  : d.style.photoFilter === "none"
+                  ? "ОРИГИНАЛ"
+                  : techniqueName(d.style.photoFilter as Technique).toUpperCase()
+                : techniqueName(dominant(d.style.weights)).toUpperCase()
+            )}
           </span>
 
           {/* Бейдж погоды */}

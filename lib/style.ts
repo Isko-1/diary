@@ -84,7 +84,7 @@ export function pickStyle(
     style: {
       weights,
       params: {
-        grain: 0.12 + 0.18 * (1 - mood.valence) + 0.06 * (ctx.timeOfDay === "night" ? 1 : 0),
+        grain: 0.02 + 0.03 * (1 - mood.valence) + 0.02 * (ctx.timeOfDay === "night" ? 1 : 0),
         softness: clamp(1 - mood.arousal),
         tempo,
         density: clamp(0.15 + 0.85 * mood.arousal),
@@ -104,8 +104,8 @@ export function weatherTweak(style: DayPassport["style"], w: Weather) {
   const why: string[] = [];
   if (w.kind === "rain" || w.kind === "storm") {
     p.softness = clamp(p.softness + 0.2);
-    p.grain += 0.04;
-    why.push(`${w.label} → мягче края, больше зерна, по кадру идут капли`);
+    p.grain += 0.01;
+    why.push(`${w.label} → мягче края, по кадру идут капли`);
   } else if (w.kind === "fog") {
     p.softness = clamp(p.softness + 0.3);
     why.push("туман → размытые края, дымка внизу кадра");
@@ -114,8 +114,8 @@ export function weatherTweak(style: DayPassport["style"], w: Weather) {
     p.tempo = clamp(p.tempo * 0.8);
     why.push("снег → тише и медленнее, по кадру падают хлопья");
   } else if (w.kind === "clear") {
-    p.grain = Math.max(0.08, p.grain - 0.03);
-    why.push("ясно → чище свет, меньше зерна");
+    p.grain = Math.max(0.01, p.grain - 0.01);
+    why.push("ясно → чище свет");
   }
   if (w.wind >= 20) {
     p.tempo = clamp(p.tempo + 0.15);
