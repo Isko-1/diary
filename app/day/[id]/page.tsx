@@ -49,25 +49,35 @@ export default function DayPage() {
     setPlaying(false);
     setNoPreview(false);
 
-    (async () => {
-      const dz = activeSong.deezerId;
-      const j = dz ? await fetch(`/api/song?deezerId=${dz}`).then((r) => r.json()).catch(() => null) : null;
-      if (dead) return;
-      if (!j?.preview) return setNoPreview(true);
-      a.src = j.preview;
-      try {
-        await a.play();
-        if (!dead) setPlaying(true);
-      } catch {
-        const go = (e: Event) => {
-          if ((e.target as Element).closest("[data-disc]")) return;
-          window.removeEventListener("pointerdown", go);
-          a.play().then(() => !dead && setPlaying(true)).catch(() => {});
-        };
-        window.addEventListener("pointerdown", go);
-        off = () => window.removeEventListener("pointerdown", go);
-      }
-    })();
+      (async () => {
+        const dz = activeSong.deezerId;
+        const j = dz ? await fetch(`/api/song?deezerId=${dz}`).then((r) => r.json()).catch(() => null) : null;
+        if (dead) return;
+        if (j?.coverUrl && !activeSong.coverUrl) {
+          // Сохраняем обложку в объект песни, если её не было
+          activeSong.coverUrl = j.coverUrl;
+          setDay((prev) => (prev ? { ...prev } : prev));
+        }
+        if (!j?.preview) return setNoPreview(true);
+        a.src = j.preview;
+        const offset = activeSong.startTime ?? 0;
+        if (offset > 0) {
+          a.currentTime = offset;
+        }
+        try {
+          await a.play();
+          if (!dead) setPlaying(true);
+        } catch {
+          const go = (e: Event) => {
+            if ((e.target as Element).closest("[data-disc]")) return;
+            window.removeEventListener("pointerdown", go);
+            if (offset > 0) a.currentTime = offset;
+            a.play().then(() => !dead && setPlaying(true)).catch(() => {});
+          };
+          window.addEventListener("pointerdown", go);
+          off = () => window.removeEventListener("pointerdown", go);
+        }
+      })();
 
     return () => {
       dead = true;
@@ -216,7 +226,7 @@ export default function DayPage() {
           <div className="space-y-3">
             <div className={`relative rounded-md shadow-2xl transition hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] ${edit ? "overflow-visible" : "overflow-hidden"}`}>
               {/* Генеративный живописный холст */}
-              <Scene day={day} />
+              <Scene day={day} activeSong={activeSong} />
 
               {/* Интерактивный слой: увеличенный винил, погода, карта, стикеры, кассета */}
               <Overlay

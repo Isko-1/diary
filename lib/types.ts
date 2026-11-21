@@ -15,6 +15,8 @@ export type Song = {
   year?: number;
   link: string;
   deezerId?: number; // превью запрашиваем при открытии дня, URL не храним
+  coverUrl?: string; // Обложка сингла/альбома песни
+  startTime?: number; // Смещение начала воспроизведения отрывка (в секундах, напр. 0..25)
   features: SongFeatures | null;
   featuresSource: "reccobeats" | "meyda" | "llm" | null;
 };

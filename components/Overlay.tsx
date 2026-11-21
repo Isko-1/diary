@@ -143,8 +143,9 @@ function Body({
       const tempoVal = currentSong.features?.tempo ? Math.min(1, Math.max(0, (currentSong.features.tempo - 60) / 120)) : day.style.params.tempo;
       const spinSpeed = (5.5 - 3.8 * tempoVal).toFixed(1);
 
-      // Вариант центрального лейбла: photo | vintage | palette | minimal
-      const labelType = it.text || "photo";
+      // Вариант центрального лейбла: song | photo | vintage | palette | minimal
+      const labelType = it.text || "song";
+      const songCoverUrl = currentSong.coverUrl;
       const photoUrl = day.photos[0];
 
       return (
@@ -215,7 +216,47 @@ function Body({
                 textAlign: "center",
               }}
             >
-              {labelType === "photo" && photoUrl ? (
+              {(labelType === "song" && (songCoverUrl || photoUrl)) ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backgroundImage: `url("${songCoverUrl || photoUrl}")`,
+                    backgroundPosition: "center",
+                    backgroundSize: "cover",
+                    filter: "contrast(1.05) saturate(1.1)",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "radial-gradient(circle, transparent 40%, rgba(0,0,0,0.65) 100%)",
+                    }}
+                  />
+                  {/* Тонкая подпись трека на яблоке */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: "12%",
+                      left: 0,
+                      right: 0,
+                      textAlign: "center",
+                      fontFamily: mono,
+                      fontSize: "1.1cqw",
+                      color: "#fff",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.9)",
+                      padding: "0 1cqw",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      opacity: 0.9,
+                    }}
+                  >
+                    {currentSong.title}
+                  </div>
+                </div>
+              ) : labelType === "photo" && photoUrl ? (
                 <div
                   style={{
                     position: "absolute",

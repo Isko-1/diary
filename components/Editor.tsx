@@ -738,6 +738,7 @@ export default function Editor({
                     <span className="block font-mono text-xs text-muted mb-1.5">Центральный лейбл:</span>
                     <div className="flex flex-wrap gap-2">
                       {[
+                        { key: "song", label: "🎵 Обложка трека" },
                         { key: "photo", label: "📷 Фото дня" },
                         { key: "vintage", label: "📻 Ретро-лейбл" },
                         { key: "palette", label: "🎨 Палитра дня" },
@@ -746,7 +747,7 @@ export default function Editor({
                         <button
                           key={l.key}
                           onClick={() => updateSel({ text: l.key })}
-                          className={`rounded-full px-3 py-1 font-mono text-xs transition ${(selectedItem.text || "photo") === l.key
+                          className={`rounded-full px-3 py-1 font-mono text-xs transition ${(selectedItem.text || "song") === l.key
                             ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
                             : "border border-[var(--border)] bg-white hover:bg-stone-50"
                             }`}
@@ -1090,30 +1091,99 @@ export default function Editor({
             </span>
             <div className="divide-y divide-stone-200 rounded-xl border border-[var(--border)] bg-white overflow-hidden shadow-sm">
               {(day.playlist && day.playlist.length > 0 ? day.playlist : [day.song]).map((track, i) => (
-                <div key={i} className="flex items-center justify-between p-3 gap-2 hover:bg-stone-50 transition">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="font-mono text-xs text-muted font-bold w-6 text-center">
-                      #{i + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-serif font-semibold text-sm truncate">{track.title}</div>
-                      <div className="font-mono text-xs text-muted truncate">{track.artist}</div>
+                <div key={i} className="p-3.5 space-y-2.5 hover:bg-stone-50 transition">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {track.coverUrl ? (
+                        <img
+                          src={track.coverUrl}
+                          alt={track.title}
+                          className="w-10 h-10 rounded-md object-cover shadow-sm shrink-0 border border-stone-200"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-md bg-stone-200 flex items-center justify-center text-sm shrink-0">
+                          🎵
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-serif font-semibold text-sm truncate flex items-center gap-2">
+                          <span>{track.title}</span>
+                          {i === 0 && (
+                            <span className="rounded bg-rose-100 px-1.5 py-0.2 font-mono text-[9px] text-rose-800 font-medium border border-rose-200">
+                              главный
+                            </span>
+                          )}
+                        </div>
+                        <div className="font-mono text-xs text-muted truncate">{track.artist}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTrack(i)}
+                        className="rounded p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                        title="Удалить трек"
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {i === 0 ? (
-                      <span className="rounded bg-rose-100 px-2 py-0.5 font-mono text-[10px] text-rose-800 font-semibold border border-rose-200">
-                        на виниле
+
+                  {/* ⏱ Выбор фрагмента трека (смещение воспроизведения 30-секундного отрывка) */}
+                  <div className="rounded-lg bg-stone-100/80 p-2.5 text-xs font-mono space-y-1.5 border border-stone-200/60">
+                    <div className="flex items-center justify-between text-[11px] text-muted">
+                      <span>✂️ Фрагмент воспроизведения (старт):</span>
+                      <span className="font-bold text-stone-900">
+                        {track.startTime ? `${track.startTime} сек` : "0 сек (с начала)"}
                       </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTrack(i)}
-                      className="rounded p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                      title="Удалить трек"
-                    >
-                      ✕
-                    </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="0"
+                        max="24"
+                        step="1"
+                        value={track.startTime || 0}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setDay((p) => {
+                            if (!p) return p;
+                            const pl = p.playlist && p.playlist.length > 0 ? [...p.playlist] : [{ ...p.song }];
+                            if (pl[i]) {
+                              pl[i] = { ...pl[i], startTime: val };
+                            }
+                            const updatedSong = i === 0 ? { ...p.song, startTime: val } : p.song;
+                            return { ...p, song: updatedSong, playlist: pl };
+                          });
+                        }}
+                        className="flex-1 accent-rose-600"
+                      />
+                      <div className="flex gap-1 shrink-0">
+                        {[0, 5, 10, 15, 20].map((sec) => (
+                          <button
+                            key={sec}
+                            type="button"
+                            onClick={() => {
+                              setDay((p) => {
+                                if (!p) return p;
+                                const pl = p.playlist && p.playlist.length > 0 ? [...p.playlist] : [{ ...p.song }];
+                                if (pl[i]) {
+                                  pl[i] = { ...pl[i], startTime: sec };
+                                }
+                                const updatedSong = i === 0 ? { ...p.song, startTime: sec } : p.song;
+                                return { ...p, song: updatedSong, playlist: pl };
+                              });
+                            }}
+                            className={`rounded px-1.5 py-0.5 text-[10px] border transition ${(track.startTime || 0) === sec
+                              ? "bg-stone-900 text-white border-stone-900 font-semibold"
+                              : "bg-white text-stone-600 border-stone-300 hover:bg-stone-50"
+                              }`}
+                          >
+                            {sec}с
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

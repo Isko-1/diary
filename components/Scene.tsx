@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import type { DayPassport, Technique } from "@/lib/types";
+import type { DayPassport, Song, Technique } from "@/lib/types";
 import { dominant, techniqueName, theme } from "@/lib/style";
 
 export const W = 1080, H = 1350;
@@ -53,7 +53,7 @@ const CSS_FILTERS: Record<string, string> = {
   cool:   "hue-rotate(15deg) saturate(0.85) brightness(0.98)",
 };
 
-export default function Scene({ day }: { day: DayPassport }) {
+export default function Scene({ day, activeSong }: { day: DayPassport; activeSong?: Song }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -323,7 +323,8 @@ export default function Scene({ day }: { day: DayPassport }) {
         ctx.fillText(`// ${techniqueName(top).toUpperCase()}`, F.x + F.w, 120);
         ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.font = '500 56px Fraunces, serif';
         wrap(day.title, F.w).slice(0, 2).forEach((l, i) => ctx.fillText(l, F.x, F.y + F.h + 90 + i * 62));
-        let fs = 60; const sig = `♪ ${day.song.title} — ${day.song.artist}`;
+        const playingSong = activeSong || day.song;
+        let fs = 60; const sig = `♪ ${playingSong.title} — ${playingSong.artist}`;
         ctx.font = `${fs}px Caveat, cursive`;
         while (ctx.measureText(sig).width > F.w && fs > 28) { fs -= 2; ctx.font = `${fs}px Caveat, cursive`; }
         ctx.globalAlpha = 0.85; ctx.fillText(sig, F.x, 1270);
@@ -339,7 +340,7 @@ export default function Scene({ day }: { day: DayPassport }) {
     })();
 
     return () => { dead = true; cancelAnimationFrame(raf); };
-  }, [day]);
+  }, [day, activeSong]);
 
   return <canvas ref={ref} width={W} height={H} className="h-auto w-full rounded-sm shadow-2xl" style={{ aspectRatio: "4 / 5" }} />;
 }

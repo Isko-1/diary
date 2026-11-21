@@ -17,7 +17,8 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("deezerId");
   if (!id || !/^\d+$/.test(id)) return NextResponse.json({ error: "deezerId" }, { status: 400 });
   const t = await j(`https://api.deezer.com/track/${id}`);
-  return NextResponse.json({ preview: t?.preview ?? null });
+  const coverUrl = t?.album?.cover_medium ?? t?.album?.cover_big ?? t?.artist?.picture_medium ?? null;
+  return NextResponse.json({ preview: t?.preview ?? null, coverUrl });
 }
 
 export async function POST(req: Request) {
@@ -47,15 +48,17 @@ export async function POST(req: Request) {
   const q = encodeURIComponent(`${artist} ${title}`.trim());
   const s = await j(`https://api.deezer.com/search?q=${q}&limit=1`);
   const hit = s?.data?.[0];
-  let deezerId: number | undefined, year: number | undefined, bpm: number | undefined;
+  let deezerId: number | undefined, year: number | undefined, bpm: number | undefined, coverUrl: string | undefined;
   if (hit) {
     deezerId = hit.id;
     title = hit.title ?? title;
     artist = hit.artist?.name ?? artist;
+    coverUrl = hit.album?.cover_medium ?? hit.artist?.picture_medium;
     const t = await j(`https://api.deezer.com/track/${hit.id}`);
     const y = parseInt(String(t?.release_date ?? "").slice(0, 4));
     if (y) year = y;
     if (t?.bpm && t.bpm > 0) bpm = t.bpm; // 0 — не ошибка, просто нет данных
+    if (!coverUrl && t?.album?.cover_medium) coverUrl = t.album.cover_medium;
   }
 
   // 3. ReccoBeats (по Spotify ID — проверить по их документации)
@@ -83,6 +86,6 @@ export async function POST(req: Request) {
   }
   if (!features && bpm) features = { tempo: bpm };
 
-  const song: Song = { title: title || "Без названия", artist: artist || "—", year, link, deezerId, features, featuresSource };
+  const song: Song = { title: title || "Без названия", artist: artist || "—", year, link, deezerId, coverUrl, features, featuresSource };
   return NextResponse.json(song);
 }
