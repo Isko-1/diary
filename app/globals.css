@@ -42,3 +42,16 @@ html {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Реалистичная анимация эквалайзера для волны */
+@keyframes eq-bounce {
+  0%, 100% {
+    height: 18%;
+  }
+  50% {
+    height: 96%;
+  }
+}
+.eq-bar {
+  animation: eq-bounce 1s ease-in-out infinite alternate;
+}

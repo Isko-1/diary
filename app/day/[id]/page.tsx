@@ -198,7 +198,7 @@ export default function DayPage() {
                 : "bg-[var(--foreground)] text-[var(--background)] hover:opacity-90"
             }`}
           >
-            <span>{edit ? "✕ Закрыть редактор" : "✨ Кастомизация сцены"}</span>
+            <span>{edit ? "✕ Закрыть редактор" : "✨ Кастомизация"}</span>
           </button>
         </div>
       </div>

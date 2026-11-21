@@ -796,45 +796,65 @@ function Body({
     }
 
     case "wave": {
+      const barDelays = [0.1, 0.45, 0.2, 0.7, 0.3, 0.85, 0.15, 0.6, 0.35, 0.8, 0.25, 0.5, 0.18, 0.65];
       return (
         <div
           style={{
-            background: "rgba(15, 15, 18, 0.85)",
-            backdropFilter: "blur(8px)",
+            background: "rgba(17, 24, 39, 0.88)",
+            backdropFilter: "blur(12px)",
             color: "#fff",
             borderRadius: "1.4cqw",
             padding: "1.4cqw 2cqw",
-            border: "0.15cqw solid rgba(255,255,255,0.18)",
-            boxShadow: "0 1cqw 3cqw rgba(0,0,0,0.35)",
+            border: "0.15cqw solid rgba(255,255,255,0.2)",
+            boxShadow: "0 1.2cqw 3.5cqw rgba(0,0,0,0.45)",
             fontFamily: mono,
+            minWidth: "26cqw",
           }}
         >
-          <div style={{ fontSize: "1.8cqw", letterSpacing: "0.1em", opacity: 0.7, textTransform: "uppercase" }}>
-            NOW PLAYING
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1cqw" }}>
+            <span style={{ fontSize: "1.6cqw", letterSpacing: "0.15em", opacity: 0.75, textTransform: "uppercase" }}>
+              {playing ? "PLAYING" : "PAUSED"}
+            </span>
+            <span style={{ fontSize: "1.4cqw", opacity: 0.6 }}>33 RPM</span>
           </div>
+
           <div
             style={{
               fontFamily: serif,
-              fontSize: "3.2cqw",
+              fontSize: "3cqw",
               fontWeight: 700,
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
-              marginTop: "0.2cqw",
+              marginTop: "0.3cqw",
+              lineHeight: 1.2,
             }}
           >
             {currentSong.title}
           </div>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "0.4cqw", height: "3.5cqw", marginTop: "0.8cqw" }}>
-            {[0.4, 0.8, 0.5, 0.9, 0.3, 0.7, 1.0, 0.6, 0.4, 0.8, 0.5].map((h, i) => (
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: "0.4cqw",
+              height: "4cqw",
+              marginTop: "1cqw",
+              padding: "0.2cqw 0",
+            }}
+          >
+            {barDelays.map((delay, i) => (
               <span
                 key={i}
+                className={playing ? "eq-bar" : ""}
                 style={{
                   flex: 1,
                   background: pal[i % pal.length] ?? "#38bdf8",
-                  height: playing ? `${h * 100}%` : "30%",
-                  borderRadius: "0.2cqw",
-                  transition: "height 0.2s ease",
+                  height: playing ? undefined : `${20 + (i % 4) * 10}%`,
+                  borderRadius: "0.25cqw",
+                  animationDelay: `-${delay}s`,
+                  animationDuration: `${0.65 + (i % 3) * 0.25}s`,
+                  transition: "height 0.3s ease",
                 }}
               />
             ))}
