@@ -168,7 +168,7 @@ export default function CalendarTimeline({
           return (
             <Link
               key={dateKey}
-              href="/new"
+              href={`/new?date=${dateKey}`}
               className="group flex flex-col items-center justify-end h-full min-w-0"
               title={`${dayNum} ${MON[month].toLowerCase()}: этот день ещё не собран. Нажмите, чтобы добавить.`}
             >

@@ -139,7 +139,7 @@ export default function DayPage() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-10 space-y-8">
+    <main className="mx-auto max-w-7xl px-6 py-10 space-y-8 overflow-visible">
       {/* Верхняя навигационная панель */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
         <Link href="/" className="font-mono text-sm text-muted hover:text-[var(--foreground)] transition">

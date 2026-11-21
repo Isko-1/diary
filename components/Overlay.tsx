@@ -67,7 +67,7 @@ export function defaultItems(day: DayPassport): SceneItem[] {
 const mono = '"JetBrains Mono", monospace';
 const serif = "Fraunces, serif";
 const hand = "Caveat, cursive";
-const cl = (x: number) => Math.min(130, Math.max(-30, x));
+const cl = (x: number) => Math.min(300, Math.max(-200, x));
 
 // Цвета для стикеров-заметок
 export const NOTE_COLORS: Record<string, { bg: string; fg: string; tape: string }> = {

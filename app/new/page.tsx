@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { defaultItems } from "@/components/Overlay";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { fetchWeather, geocode, getGeo, reverse, GLYPH } from "@/lib/env";
@@ -30,15 +30,24 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-export default function NewDay() {
+function NewDayForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialDate = searchParams.get("date") || new Date().toISOString().slice(0, 10);
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [songs, setSongs] = useState<string[]>([""]);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(initialDate);
+
+  useEffect(() => {
+    const qDate = searchParams.get("date");
+    if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) {
+      setDate(qDate);
+    }
+  }, [searchParams]);
 
   async function appendFiles(newFileList: FileList | File[]) {
     const incoming = Array.from(newFileList).filter((f) => f.type.startsWith("image/"));
@@ -707,5 +716,13 @@ export default function NewDay() {
         </button>
       </form>
     </main>
+  );
+}
+
+export default function NewDay() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center font-mono text-muted">Загрузка...</div>}>
+      <NewDayForm />
+    </Suspense>
   );
 }
