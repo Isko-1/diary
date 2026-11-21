@@ -51,9 +51,8 @@ export default function DayPage() {
 
     (async () => {
       const dz = activeSong.deezerId;
-      const url = dz
-        ? `/api/song?deezerId=${dz}`
-        : `/api/song?title=${encodeURIComponent(activeSong.title)}&artist=${encodeURIComponent(activeSong.artist)}`;
+      const q = `title=${encodeURIComponent(activeSong.title)}&artist=${encodeURIComponent(activeSong.artist)}`;
+      const url = dz ? `/api/song?deezerId=${dz}&${q}` : `/api/song?${q}`;
 
       const j = await fetch(url).then((r) => r.json()).catch(() => null);
       if (dead) return;
@@ -66,7 +65,9 @@ export default function DayPage() {
             pl[currentSongIndex] = { ...pl[currentSongIndex], coverUrl: j.coverUrl };
           }
           const updatedSong = currentSongIndex === 0 ? { ...prev.song, coverUrl: j.coverUrl } : prev.song;
-          return { ...prev, song: updatedSong, playlist: pl };
+          const updatedDay = { ...prev, song: updatedSong, playlist: pl };
+          saveDay(updatedDay).catch(() => {});
+          return updatedDay;
         });
       }
 
@@ -138,7 +139,20 @@ export default function DayPage() {
     setDay(updated);
   }
 
-  if (day === undefined) return null;
+  if (day === undefined) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10 space-y-8">
+        <div className="h-8 w-44 rounded-full bg-stone-200/60 animate-pulse" />
+        <div className="grid gap-8 lg:gap-10 lg:grid-cols-[minmax(0,620px)_1fr] items-start">
+          <div className="aspect-[4/5] w-full rounded-md bg-stone-200/50 animate-pulse" />
+          <div className="space-y-4">
+            <div className="h-10 w-2/3 rounded-lg bg-stone-200/60 animate-pulse" />
+            <div className="h-28 w-full rounded-lg bg-stone-200/40 animate-pulse" />
+          </div>
+        </div>
+      </main>
+    );
+  }
   if (day === null) {
     return (
       <main className="p-10">
@@ -151,20 +165,20 @@ export default function DayPage() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-10 space-y-8 overflow-visible">
+    <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10 space-y-8 overflow-x-hidden min-w-0">
       {/* Верхняя навигационная панель */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
-        <Link href="/" className="font-mono text-sm text-muted hover:text-[var(--foreground)] transition">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
+        <Link href="/" className="font-mono text-sm text-muted hover:text-[var(--foreground)] transition shrink-0">
           ← архив воспоминаний
         </Link>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 max-w-full">
           {/* Мини-плеер с навигацией по трекам */}
-          <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-white/70 p-1 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-white/70 p-1 shadow-sm backdrop-blur max-w-full">
             {playlist.length > 1 && (
               <button
                 onClick={prevTrack}
-                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-stone-200 transition text-xs"
+                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-stone-200 transition text-xs shrink-0"
                 title="Предыдущий трек"
               >
                 ⏮
@@ -174,15 +188,15 @@ export default function DayPage() {
             <button
               onClick={toggleMusic}
               disabled={noPreview}
-              className={`flex items-center gap-2 rounded-full px-3.5 py-1 font-mono text-xs transition ${
+              className={`flex items-center gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-3.5 py-1 font-mono text-xs transition ${
                 playing
                   ? "border border-emerald-600 bg-emerald-50 text-emerald-800"
                   : "bg-white/60 text-muted hover:border-[var(--foreground)]"
-              } disabled:opacity-40`}
+              } disabled:opacity-40 min-w-0`}
               title={noPreview ? "Превью недоступно" : playing ? "Пауза" : "Играть"}
             >
               <span className={playing ? "animate-spin text-sm" : "text-sm"}>{playing ? "💿" : "▶"}</span>
-              <span className="truncate max-w-[150px]">
+              <span className="truncate max-w-[110px] sm:max-w-[150px]">
                 {noPreview ? "без звука" : activeSong?.title || "песня"}
               </span>
             </button>
@@ -190,7 +204,7 @@ export default function DayPage() {
             {playlist.length > 1 && (
               <button
                 onClick={nextTrack}
-                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-stone-200 transition text-xs"
+                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-stone-200 transition text-xs shrink-0"
                 title="Следующий трек"
               >
                 ⏭
@@ -204,7 +218,7 @@ export default function DayPage() {
               setEdit((prev) => !prev);
               setSel(null);
             }}
-            className={`flex items-center gap-2 rounded-full px-5 py-2 font-mono text-xs font-medium transition ${
+            className={`flex items-center gap-2 rounded-full px-4 sm:px-5 py-2 font-mono text-xs font-medium transition shrink-0 ${
               edit
                 ? "bg-rose-600 text-white shadow-md"
                 : "bg-[var(--foreground)] text-[var(--background)] hover:opacity-90"
@@ -232,11 +246,11 @@ export default function DayPage() {
       )}
 
       {/* Основная сетка: Постер с винилом и элементами + Описание */}
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,620px)_1fr] items-start">
+      <div className="grid gap-8 lg:gap-10 lg:grid-cols-[minmax(0,620px)_1fr] items-start min-w-0">
         {/* Интерактивный холст с генеративным артом и оверлеем */}
         <BlurFade>
-          <div className="space-y-3">
-            <div className="relative rounded-md shadow-2xl transition hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] overflow-visible">
+          <div className="space-y-3 min-w-0">
+            <div className="relative rounded-md shadow-2xl transition hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] overflow-hidden sm:overflow-visible">
               {/* Генеративный живописный холст */}
               <Scene day={day} activeSong={activeSong} />
 
@@ -252,6 +266,7 @@ export default function DayPage() {
                 noPreview={noPreview}
                 onDisc={toggleMusic}
                 activeSong={activeSong}
+                currentSongIndex={currentSongIndex}
               />
             </div>
 
@@ -323,15 +338,15 @@ export default function DayPage() {
                 </>
               )}
             </div>
-            <h1 className="mt-2 text-4xl lg:text-5xl font-serif font-bold leading-tight">{day.title}</h1>
-            <p className="mt-5 text-lg leading-relaxed text-stone-700 whitespace-pre-wrap">{day.text}</p>
+            <h1 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-serif font-bold leading-tight break-words">{day.title}</h1>
+            <p className="mt-5 text-base sm:text-lg leading-relaxed text-stone-700 whitespace-pre-wrap break-words">{day.text}</p>
           </div>
 
           {/* Интерактивные действия */}
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="flex flex-wrap gap-2.5 sm:gap-3 pt-2">
             <button
               onClick={speak}
-              className="rounded-full border border-[var(--foreground)] px-5 py-2.5 font-mono text-sm hover:bg-black/5 transition"
+              className="rounded-full border border-[var(--foreground)] px-4 sm:px-5 py-2 sm:py-2.5 font-mono text-xs sm:text-sm hover:bg-black/5 transition"
             >
               🎙️ озвучить
             </button>
@@ -340,7 +355,7 @@ export default function DayPage() {
                 href={activeSong.link}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full border border-[var(--border)] px-5 py-2.5 font-mono text-sm text-muted hover:text-[var(--foreground)] hover:border-[var(--foreground)] transition"
+                className="rounded-full border border-[var(--border)] px-4 sm:px-5 py-2 sm:py-2.5 font-mono text-xs sm:text-sm text-muted hover:text-[var(--foreground)] hover:border-[var(--foreground)] transition truncate max-w-full"
               >
                 ♪ открыть «{activeSong.title}» ↗
               </a>

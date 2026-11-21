@@ -6,6 +6,7 @@ import { BlurFade } from "@/components/ui/blur-fade";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { MagicCard } from "@/components/ui/magic-card";
 import { GLYPH } from "@/lib/env";
+import { moodColor, moodLabel } from "@/lib/mood";
 import { listDays } from "@/lib/store";
 import { dominant, techniqueName } from "@/lib/style";
 import type { DayPassport, Technique } from "@/lib/types";
@@ -13,19 +14,10 @@ import type { DayPassport, Technique } from "@/lib/types";
 const GRAIN =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
-/** Маппинг valence → цвет настроения из оригинального Genesis */
-function moodColor(valence: number): string {
-  if (valence >= 0.8) return "#ff7a59"; // энергично — оранжевый
-  if (valence >= 0.6) return "#f5d86b"; // светло — жёлтый
-  if (valence >= 0.4) return "#b7a6f2"; // мечтательно — лавандовый
-  if (valence >= 0.2) return "#8cc9b4"; // спокойно — мятный
-  return "#c9d0e3";                     // нейтрально — серо-синий
-}
-
 function DayCard({ d }: { d: DayPassport }) {
   const [c0, c1] = [d.style.params.palette[0] ?? "#bbb", d.style.params.palette[1] ?? "#888"];
   const coverPhoto = d.photos?.[0];
-  const mood = moodColor(d.mood.valence);
+  const mood = moodColor(d.mood);
 
   return (
     <Link href={`/day/${d.id}`} title={`${d.title} · ${d.song.title}`} className="group block rounded-xl">
@@ -34,6 +26,7 @@ function DayCard({ d }: { d: DayPassport }) {
         <div
           className="h-1.5 w-full"
           style={{ background: mood }}
+          title={moodLabel(d.mood)}
         />
 
         <div
@@ -115,8 +108,13 @@ function DayCard({ d }: { d: DayPassport }) {
 
         <div className="space-y-1.5 p-4 bg-white/70 backdrop-blur">
           <div className="flex items-center justify-between font-mono text-xs text-muted">
-            <span>{d.date}</span>
-            {d.geo?.place && <span className="truncate max-w-[140px]">📍 {d.geo.place}</span>}
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full shadow-sm" style={{ background: mood }} />
+              <span className="font-semibold text-stone-800">{moodLabel(d.mood)}</span>
+              <span className="opacity-40">•</span>
+              <span>{d.date}</span>
+            </span>
+            {d.geo?.place && <span className="truncate max-w-[120px]">📍 {d.geo.place}</span>}
           </div>
           <h3
             className="text-lg font-bold leading-snug line-clamp-1 group-hover:text-rose-900 transition-colors"

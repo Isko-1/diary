@@ -242,7 +242,7 @@ export default function Editor({
           r: 0,
           size: 30,
           variant: "black",
-          text: "photo",
+          text: "song",
         };
         break;
       case "weather":

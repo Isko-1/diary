@@ -12,30 +12,73 @@ const j = async (url: string) => {
   }
 };
 
-/** Превью запрашиваем свежим при открытии дня: ссылки Deezer протухают. */
+/** Поиск в iTunes Search API — работает без API-ключа, глобально (в т.ч. в РФ без блокировок) */
+async function fetchITunes(query: string) {
+  try {
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`,
+      { headers: { accept: "application/json" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const hit = data.results?.[0];
+    if (!hit) return null;
+    const rawCover = hit.artworkUrl100 || hit.artworkUrl60;
+    const coverUrl = rawCover ? rawCover.replace(/100x100bb/, "600x600bb") : null;
+    return {
+      preview: hit.previewUrl ?? null,
+      coverUrl,
+      title: hit.trackName ?? undefined,
+      artist: hit.artistName ?? undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Превью и обложка: Deezer + надежный iTunes Search fallback */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const id = url.searchParams.get("deezerId");
   const qTitle = url.searchParams.get("title");
   const qArtist = url.searchParams.get("artist");
 
+  let preview: string | null = null;
+  let coverUrl: string | null = null;
+  let deezerId: number | null = null;
+
+  // 1. Попытка через Deezer ID (если передан)
   if (id && /^\d+$/.test(id)) {
     const t = await j(`https://api.deezer.com/track/${id}`);
-    const coverUrl = t?.album?.cover_medium ?? t?.album?.cover_big ?? t?.artist?.picture_medium ?? null;
-    return NextResponse.json({ preview: t?.preview ?? null, coverUrl });
-  }
-
-  if (qTitle) {
-    const q = encodeURIComponent(`${qArtist ?? ""} ${qTitle}`.trim());
-    const s = await j(`https://api.deezer.com/search?q=${q}&limit=1`);
-    const hit = s?.data?.[0];
-    if (hit) {
-      const coverUrl = hit.album?.cover_medium ?? hit.album?.cover_big ?? hit.artist?.picture_medium ?? null;
-      return NextResponse.json({ preview: hit.preview ?? null, coverUrl, deezerId: hit.id });
+    if (t) {
+      preview = t.preview ?? null;
+      coverUrl = t.album?.cover_medium ?? t.album?.cover_big ?? t.artist?.picture_medium ?? null;
+      deezerId = Number(id);
     }
   }
 
-  return NextResponse.json({ error: "deezerId or title required" }, { status: 400 });
+  // 2. Поиск по запросу в Deezer (если обложка или превью еще не получены)
+  if ((!preview || !coverUrl) && qTitle) {
+    const q = `${qArtist ?? ""} ${qTitle}`.trim();
+    const s = await j(`https://api.deezer.com/search?q=${encodeURIComponent(q)}&limit=1`);
+    const hit = s?.data?.[0];
+    if (hit) {
+      if (!preview) preview = hit.preview ?? null;
+      if (!coverUrl) coverUrl = hit.album?.cover_medium ?? hit.album?.cover_big ?? hit.artist?.picture_medium ?? null;
+      if (!deezerId) deezerId = hit.id;
+    }
+  }
+
+  // 3. iTunes Search API fallback (надежно работает даже при блокировках Deezer)
+  if ((!preview || !coverUrl) && qTitle) {
+    const itunes = await fetchITunes(`${qArtist ?? ""} ${qTitle}`.trim());
+    if (itunes) {
+      if (!preview && itunes.preview) preview = itunes.preview;
+      if (!coverUrl && itunes.coverUrl) coverUrl = itunes.coverUrl;
+    }
+  }
+
+  return NextResponse.json({ preview, coverUrl, deezerId });
 }
 
 export async function POST(req: Request) {
@@ -76,6 +119,15 @@ export async function POST(req: Request) {
     if (y) year = y;
     if (t?.bpm && t.bpm > 0) bpm = t.bpm; // 0 — не ошибка, просто нет данных
     if (!coverUrl && t?.album?.cover_medium) coverUrl = t.album.cover_medium;
+  }
+
+  // 2b. Если Deezer не вернул обложку (или заблокирован), ищем в iTunes:
+  if (!coverUrl && title) {
+    const itunes = await fetchITunes(`${artist} ${title}`.trim());
+    if (itunes?.coverUrl) {
+      coverUrl = itunes.coverUrl;
+      if (!artist && itunes.artist) artist = itunes.artist;
+    }
   }
 
   // 3. ReccoBeats (по Spotify ID — проверить по их документации)

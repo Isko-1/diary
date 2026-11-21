@@ -33,7 +33,7 @@ export function defaultItems(day: DayPassport): SceneItem[] {
       r: 0,
       size: 30,
       variant: "black",
-      text: "photo",
+      text: "song",
       zIndex: 10,
     },
   ];
@@ -119,12 +119,14 @@ function Body({
   playing,
   noPreview,
   activeSong,
+  currentSongIndex,
 }: {
   it: SceneItem;
   day: DayPassport;
   playing: boolean;
   noPreview: boolean;
   activeSong?: Song;
+  currentSongIndex?: number;
 }) {
   const th = theme(day);
   const pal = day.style.params.palette;
@@ -143,16 +145,36 @@ function Body({
       const tempoVal = currentSong.features?.tempo ? Math.min(1, Math.max(0, (currentSong.features.tempo - 60) / 120)) : day.style.params.tempo;
       const spinSpeed = (5.5 - 3.8 * tempoVal).toFixed(1);
 
+      // Индекс активного трека в плейлисте (0, 1, 2...)
+      const songIndex = currentSongIndex ?? (
+        day.playlist && activeSong
+          ? Math.max(0, day.playlist.findIndex((s) => s.title === activeSong.title && s.artist === activeSong.artist))
+          : 0
+      );
+
       // Вариант центрального лейбла: song | photo | vintage | palette | minimal
-      // Если у элемента явно не задан другой стиль (или стоит song/photo по умолчанию), отдаем предпочтение обложке текущей песни
       const labelType = it.text || "song";
       const songCoverUrl = currentSong.coverUrl;
-      const photoUrl = day.photos[0];
 
-      // Картинка центрального яблока: если выбран стиль 'song' или 'photo', в первую очередь берем обложку активного трека
-      const effectiveCover = (labelType === "song" || labelType === "photo")
-        ? (songCoverUrl || photoUrl)
+      // Если в галерее несколько фото, ротируем их по трекам
+      const photoForTrack = day.photos && day.photos.length > 0
+        ? day.photos[songIndex % day.photos.length]
         : null;
+
+      // Приоритет обложки:
+      // 1) Если у трека есть coverUrl — показываем обложку трека
+      // 2) Если выбран режим photo — показываем фото дня для этого трека
+      // 3) Если режим song и в галерее есть фото, но нет обложки трека — ротируем фото
+      let effectiveCover: string | null = null;
+      if (labelType === "song") {
+        // В режиме трека приоритет у обложки трека; если ее нет и в галерее >1 фото, берем фото трека
+        effectiveCover = songCoverUrl || (day.photos && day.photos.length > 1 ? photoForTrack : null);
+      } else if (labelType === "photo") {
+        // В режиме фото: если фото в галерее несколько, ротируем их; если фото всего одно, но есть обложка трека — берем обложку трека, чтобы картинка менялась при смене трека
+        effectiveCover = (day.photos && day.photos.length > 1)
+          ? photoForTrack
+          : (songCoverUrl || photoForTrack);
+      }
 
       return (
         <div
@@ -224,6 +246,7 @@ function Body({
             >
               {effectiveCover ? (
                 <div
+                  key={effectiveCover}
                   style={{
                     position: "absolute",
                     inset: 0,
@@ -231,6 +254,7 @@ function Body({
                     backgroundPosition: "center",
                     backgroundSize: "cover",
                     filter: "contrast(1.05) saturate(1.1)",
+                    transition: "opacity 0.25s ease",
                   }}
                 >
                   <div
@@ -261,6 +285,63 @@ function Body({
                   >
                     {currentSong.title}
                   </div>
+                </div>
+              ) : labelType === "song" ? (
+                <div
+                  key={`procedural-disc-${songIndex}-${currentSong.title}`}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: `radial-gradient(circle at center, ${pal[songIndex % pal.length] ?? "#b45309"} 0%, #17171a 100%)`,
+                    color: "#fef3c7",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "1cqw",
+                    boxShadow: "inset 0 0 2cqw rgba(0,0,0,0.8)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: mono,
+                      fontSize: "1.2cqw",
+                      letterSpacing: "0.15em",
+                      textTransform: "uppercase",
+                      color: "rgba(255,255,255,0.75)",
+                    }}
+                  >
+                    TRK 0{songIndex + 1} // 33 RPM
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: serif,
+                      fontSize: "2cqw",
+                      fontWeight: 700,
+                      lineHeight: 1.1,
+                      margin: "0.3cqw 0",
+                      maxWidth: "85%",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+                    }}
+                  >
+                    {currentSong.title}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: mono,
+                      fontSize: "1.1cqw",
+                      color: "rgba(255,255,255,0.85)",
+                      maxWidth: "80%",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {currentSong.artist}
+                  </span>
                 </div>
               ) : labelType === "vintage" ? (
                 <div
@@ -997,6 +1078,7 @@ type Props = {
   noPreview: boolean;
   onDisc: () => void;
   activeSong?: Song;
+  currentSongIndex?: number;
 };
 
 /** Слой элементов поверх сцены: в режиме редактирования элементы свободно перетаскиваются мышью/тачем. */
@@ -1011,6 +1093,7 @@ export default function Overlay({
   noPreview,
   onDisc,
   activeSong,
+  currentSongIndex = 0,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
 
@@ -1246,7 +1329,14 @@ export default function Overlay({
                 transition: edit ? "none" : "transform 0.15s ease",
               }}
             >
-              <Body it={it} day={day} playing={playing} noPreview={noPreview} activeSong={activeSong} />
+              <Body
+                it={it}
+                day={day}
+                playing={playing}
+                noPreview={noPreview}
+                activeSong={activeSong}
+                currentSongIndex={currentSongIndex}
+              />
             </div>
 
             {/* Интерактивные маркеры управления — рендерятся поверх, БЕЗ вращения */}

@@ -1,20 +1,13 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { MOODS, MOOD_ORDER, moodColor } from "@/lib/mood";
 import type { DayPassport } from "@/lib/types";
 
 const MON = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
 ];
-
-function moodColor(valence: number): string {
-  if (valence >= 0.8) return "#ff7a59"; // энергично — оранжевый
-  if (valence >= 0.6) return "#f5d86b"; // светло — жёлтый
-  if (valence >= 0.4) return "#b7a6f2"; // мечтательно — лавандовый
-  if (valence >= 0.2) return "#8cc9b4"; // спокойно — мятный
-  return "#c9d0e3";                     // нейтрально — серо-синий
-}
 
 export default function CalendarTimeline({
   days,
@@ -25,7 +18,19 @@ export default function CalendarTimeline({
   selectedDayId?: string;
   onSelectDay?: (dayId: string | null) => void;
 }) {
-  const [currentDate, setCurrentDate] = useState(() => new Date());
+  // Дата берётся только на клиенте: страница `/` пререндерится при сборке,
+  // и `new Date()` в рендере давал расхождение сервер/клиент (React #418).
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
+  const [today, setToday] = useState<Date | null>(null);
+  useEffect(() => {
+    const now = new Date();
+    setCurrentDate(now);
+    setToday(now);
+  }, []);
+
+  if (!currentDate || !today) {
+    return <div aria-hidden className="h-64 w-full rounded-2xl border border-[var(--border)] bg-white/40" />;
+  }
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -34,7 +39,6 @@ export default function CalendarTimeline({
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   // Сегодняшняя дата в формате YYYY-MM-DD
-  const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   // Быстрый поиск записей по YYYY-MM-DD
@@ -57,7 +61,7 @@ export default function CalendarTimeline({
     const entry = daysByDate.get(dateKey);
     const isToday = dateKey === todayKey;
     const isSelected = entry && entry.id === selectedDayId;
-    const color = entry ? moodColor(entry.mood.valence) : undefined;
+    const color = entry ? moodColor(entry.mood) : undefined;
 
     daysElements.push({
       dayNum: d,
@@ -197,26 +201,12 @@ export default function CalendarTimeline({
       <div className="mt-3 pt-2.5 border-t border-stone-200/50 flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] text-muted">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-[10px] uppercase font-semibold text-stone-500">Настроения:</span>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#ff7a59" }} />
-            <span>Энергично</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#f5d86b" }} />
-            <span>Светло</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#b7a6f2" }} />
-            <span>Мечтательно</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#8cc9b4" }} />
-            <span>Спокойно</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#c9d0e3" }} />
-            <span>Нейтрально</span>
-          </div>
+          {MOOD_ORDER.map((k) => (
+            <div key={k} className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: MOODS[k].color }} />
+              <span>{MOODS[k].label}</span>
+            </div>
+          ))}
         </div>
 
         <div className="flex items-center gap-2">

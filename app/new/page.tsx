@@ -33,19 +33,22 @@ function readAsDataUrl(file: File): Promise<string> {
 function NewDayForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialDate = searchParams.get("date") || new Date().toISOString().slice(0, 10);
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [songs, setSongs] = useState<string[]>([""]);
-  const [date, setDate] = useState(initialDate);
+  const [date, setDate] = useState("");
 
   useEffect(() => {
     const qDate = searchParams.get("date");
     if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) {
       setDate(qDate);
+    } else {
+      const d = new Date();
+      const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      setDate(localDate);
     }
   }, [searchParams]);
 
@@ -254,7 +257,7 @@ function NewDayForm() {
 
       setBusy("Настраиваю атмосферу дня…");
       const [a, ...fetchedSongs] = (await Promise.all([
-        post("/api/analyze-day", { text }),
+        post("/api/analyze-day", { text, date }),
         ...validSongs.map((link) => post("/api/song", { link })),
       ])) as [any, ...Song[]];
 
