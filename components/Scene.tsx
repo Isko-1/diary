@@ -320,20 +320,30 @@ export default function Scene({ day, activeSong }: { day: DayPassport; activeSon
           sceneFallback(1);
         }
 
-        // --- постоянные элементы ---
+        // --- постоянные элементы (с учетом переключателей скрытия) ---
         ctx.globalAlpha = 0.55; ctx.strokeStyle = th.fg; ctx.lineWidth = 1.5; ctx.strokeRect(F.x, F.y, F.w, F.h);
         ctx.globalAlpha = 1; ctx.fillStyle = th.fg; ctx.textBaseline = "alphabetic";
-        ctx.textAlign = "left"; ctx.font = '500 28px "JetBrains Mono", monospace';
-        ctx.fillText(`${dd}.${mm}.${yy}`, F.x, 120);
-        ctx.textAlign = "right"; ctx.globalAlpha = 0.6; ctx.font = '500 22px "JetBrains Mono", monospace';
-        ctx.fillText(`// ${activeTechniqueName.toUpperCase()}`, F.x + F.w, 120);
+
+        if (!day.style.hideDateLabel) {
+          ctx.textAlign = "left"; ctx.font = '500 28px "JetBrains Mono", monospace';
+          ctx.fillText(`${dd}.${mm}.${yy}`, F.x, 120);
+        }
+
+        if (!day.style.hideStyleLabel) {
+          ctx.textAlign = "right"; ctx.globalAlpha = 0.6; ctx.font = '500 22px "JetBrains Mono", monospace';
+          ctx.fillText(`// ${activeTechniqueName.toUpperCase()}`, F.x + F.w, 120);
+        }
+
         ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.font = '500 56px Fraunces, serif';
         wrap(day.title, F.w).slice(0, 2).forEach((l, i) => ctx.fillText(l, F.x, F.y + F.h + 90 + i * 62));
-        const playingSong = activeSong || day.song;
-        let fs = 60; const sig = `♪ ${playingSong.title} — ${playingSong.artist}`;
-        ctx.font = `${fs}px Caveat, cursive`;
-        while (ctx.measureText(sig).width > F.w && fs > 28) { fs -= 2; ctx.font = `${fs}px Caveat, cursive`; }
-        ctx.globalAlpha = 0.85; ctx.fillText(sig, F.x, 1270);
+
+        if (!day.style.hideSongLabel) {
+          const playingSong = activeSong || day.song;
+          let fs = 60; const sig = `♪ ${playingSong.title} — ${playingSong.artist}`;
+          ctx.font = `${fs}px Caveat, cursive`;
+          while (ctx.measureText(sig).width > F.w && fs > 28) { fs -= 2; ctx.font = `${fs}px Caveat, cursive`; }
+          ctx.globalAlpha = 0.85; ctx.fillText(sig, F.x, 1270);
+        }
 
         // единое деликатное зерно поверх всего (только если не отключено)
         if (grain > 0.005) {

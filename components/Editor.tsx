@@ -581,6 +581,92 @@ export default function Editor({
             </div>
           </div>
 
+          {/* 🏷️ Отображение надписей на постере */}
+          <div>
+            <span className="block font-mono text-[11px] text-muted uppercase tracking-wider mb-2">
+              🏷️ Текстовые подписи постера:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setDay((p) =>
+                    p
+                      ? {
+                          ...p,
+                          style: {
+                            ...p.style,
+                            hideSongLabel: !p.style.hideSongLabel,
+                          },
+                        }
+                      : p
+                  )
+                }
+                className={`rounded-lg px-3 py-1.5 font-mono text-xs transition flex items-center gap-1.5 ${
+                  day.style.hideSongLabel
+                    ? "border border-dashed border-rose-300 bg-rose-50 text-rose-700"
+                    : "border border-stone-300 bg-white text-stone-800 shadow-sm"
+                }`}
+                title="Включить / скрыть подпись песни внизу сценки"
+              >
+                <span>{day.style.hideSongLabel ? "✕" : "✓"}</span>
+                <span>Название трека внизу</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setDay((p) =>
+                    p
+                      ? {
+                          ...p,
+                          style: {
+                            ...p.style,
+                            hideStyleLabel: !p.style.hideStyleLabel,
+                          },
+                        }
+                      : p
+                  )
+                }
+                className={`rounded-lg px-3 py-1.5 font-mono text-xs transition flex items-center gap-1.5 ${
+                  day.style.hideStyleLabel
+                    ? "border border-dashed border-rose-300 bg-rose-50 text-rose-700"
+                    : "border border-stone-300 bg-white text-stone-800 shadow-sm"
+                }`}
+                title="Включить / скрыть подпись стиля вверху справа"
+              >
+                <span>{day.style.hideStyleLabel ? "✕" : "✓"}</span>
+                <span>Название стиля вверху</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setDay((p) =>
+                    p
+                      ? {
+                          ...p,
+                          style: {
+                            ...p.style,
+                            hideDateLabel: !p.style.hideDateLabel,
+                          },
+                        }
+                      : p
+                  )
+                }
+                className={`rounded-lg px-3 py-1.5 font-mono text-xs transition flex items-center gap-1.5 ${
+                  day.style.hideDateLabel
+                    ? "border border-dashed border-rose-300 bg-rose-50 text-rose-700"
+                    : "border border-stone-300 bg-white text-stone-800 shadow-sm"
+                }`}
+                title="Включить / скрыть дату вверху слева"
+              >
+                <span>{day.style.hideDateLabel ? "✕" : "✓"}</span>
+                <span>Дата вверху</span>
+              </button>
+            </div>
+          </div>
+
           {/* Настройки выбранного элемента */}
           {selectedItem ? (
             <div className="space-y-4 rounded-lg border border-dashed border-rose-400 bg-rose-50/40 p-4">

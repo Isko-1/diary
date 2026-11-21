@@ -82,7 +82,10 @@ export type DayPassport = {
       density: number;
       palette: string[];
     };
-    photoFilter?: PhotoFilter; // Эффект на фото: auto = выбор LLM, none = чистое фото
+    photoFilter?: PhotoFilter; // Эффект на фото: auto = выбор по настроению, none = чистое фото
+    hideSongLabel?: boolean;   // Скрыть название трека внизу постера
+    hideStyleLabel?: boolean;  // Скрыть название стиля/фильтра вверху постера
+    hideDateLabel?: boolean;   // Скрыть дату вверху постера
   };
   why: string[];
   weather?: Weather;
