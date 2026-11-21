@@ -454,16 +454,18 @@ export default function DayPage() {
               </div>
             </div>
 
-            {/* Почему подобрана эта живописная техника */}
+            {/* Детали настроения и художественного стиля */}
             {day.why && day.why.length > 0 && (
               <div className="border-t border-[var(--border)] pt-3">
                 <span className="block font-mono text-[11px] text-muted uppercase tracking-wider mb-1.5">
-                  Генеративный стиль:
+                  Настроение постера:
                 </span>
                 <ul className="space-y-1 font-mono text-xs text-muted list-disc list-inside">
-                  {day.why.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
+                  {day.why
+                    .filter((r) => !r.includes("llm") && !r.includes("оценены по названию"))
+                    .map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
                 </ul>
               </div>
             )}

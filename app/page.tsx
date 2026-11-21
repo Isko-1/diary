@@ -147,7 +147,7 @@ export default function Archive() {
           </BlurFade>
           <BlurFade delay={0.25}>
             <p className="mt-3 max-w-md text-muted">
-              Невидимое — ощущение дня. Здесь оно оживает в музыке, виниле, погоде и генеративном искусстве.
+              Невидимое — ощущение дня. Здесь оно оживает в музыке, виниле, погоде и настроении.
             </p>
           </BlurFade>
         </div>

@@ -236,14 +236,14 @@ export default function NewDay() {
     }
 
     try {
-      setBusy("Читаю фото…");
+      setBusy("Подбираю цвета и палитру…");
       const photos =
         previews.length === files.length && previews.every((p) => p.url)
           ? previews.map((p) => p.url)
           : await Promise.all(files.map((f) => fileToDataUrl(f)));
       const photoStats = await analyzeAll(photos);
 
-      setBusy("Слушаю текст и плейлист дня…");
+      setBusy("Настраиваю атмосферу дня…");
       const [a, ...fetchedSongs] = (await Promise.all([
         post("/api/analyze-day", { text }),
         ...validSongs.map((link) => post("/api/song", { link })),

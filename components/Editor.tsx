@@ -550,20 +550,20 @@ export default function Editor({
           {/* 🎨 Эффект на фото */}
           <div>
             <span className="block font-mono text-[11px] text-muted uppercase tracking-wider mb-2">
-              🎨 Эффект на фото:
+              🎨 Стиль оформления фото:
             </span>
             <div className="flex flex-wrap gap-2">
               {([
-                { key: "auto",      label: "✨ Авто",        desc: "LLM-выбор живописи" },
-                { key: "none",      label: "📷 Чистое",      desc: "Без эффектов" },
-                { key: "film",      label: "🎞️ Плёнка",      desc: "Контраст + сепия" },
-                { key: "bw",        label: "⬛ Ч/Б",         desc: "Grayscale" },
-                { key: "warm",      label: "🌅 Тепло",       desc: "Тёплый тон" },
-                { key: "cool",      label: "🌊 Холод",       desc: "Прохладный тон" },
-                { key: "monet",     label: "🖌️ Монэ",        desc: "Масляные мазки" },
-                { key: "kandinsky", label: "🔷 Кандинский",  desc: "Геометрия" },
-                { key: "matisse",   label: "🫧 Матисс",      desc: "Пятна цвета" },
-                { key: "minimal",   label: "⬜ Минимал",     desc: "Минимализм" },
+                { key: "auto",      label: "✨ Настроение дня", desc: "Подбор стиля по настроению" },
+                { key: "none",      label: "📷 Оригинал",       desc: "Чистое фото без фильтров" },
+                { key: "film",      label: "🎞️ Плёнка",         desc: "Контраст + лёгкая сепия" },
+                { key: "bw",        label: "⬛ Ч/Б",            desc: "Классический монохром" },
+                { key: "warm",      label: "🌅 Тёплый",         desc: "Тёплый вечерний тон" },
+                { key: "cool",      label: "🌊 Прохладный",     desc: "Свежий прохладный тон" },
+                { key: "monet",     label: "🖌️ Клод Моне",      desc: "Импрессионизм и мазки" },
+                { key: "kandinsky", label: "🔷 Кандинский",     desc: "Абстрактная геометрия" },
+                { key: "matisse",   label: "🫧 Матисс",         desc: "Пятна цвета и аппликации" },
+                { key: "minimal",   label: "⬜ Минимал",        desc: "Лаконичные линии" },
               ] as const).map((ef) => (
                 <button
                   key={ef.key}
