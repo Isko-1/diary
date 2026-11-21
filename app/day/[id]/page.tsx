@@ -214,7 +214,7 @@ export default function DayPage() {
         {/* Интерактивный холст с генеративным артом и оверлеем */}
         <BlurFade>
           <div className="space-y-3">
-            <div className="relative overflow-hidden rounded-md shadow-2xl transition hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)]">
+            <div className={`relative rounded-md shadow-2xl transition hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] ${edit ? "overflow-visible" : "overflow-hidden"}`}>
               {/* Генеративный живописный холст */}
               <Scene day={day} />
 

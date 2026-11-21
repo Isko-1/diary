@@ -1001,6 +1001,129 @@ export default function Overlay({
     window.addEventListener("pointerup", up);
   }
 
+  // Интерактивное вращение мышью/тачем прямо за крутилку над элементом
+  function startRotate(e: React.PointerEvent, it: SceneItem) {
+    e.preventDefault();
+    e.stopPropagation();
+    const r = box.current!.getBoundingClientRect();
+    const centerX = r.left + (it.x / 100) * r.width;
+    const centerY = r.top + (it.y / 100) * r.height;
+    const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+    const startDeg = it.r || 0;
+
+    const mv = (m: PointerEvent) => {
+      const currentAngle = Math.atan2(m.clientY - centerY, m.clientX - centerX);
+      const deltaDeg = ((currentAngle - startAngle) * 180) / Math.PI;
+      let newDeg = Math.round(startDeg + deltaDeg);
+      newDeg = ((((newDeg + 180) % 360) + 360) % 360) - 180;
+      if (Math.abs(newDeg) < 3) newDeg = 0;
+      else if (Math.abs(newDeg - 90) < 3) newDeg = 90;
+      else if (Math.abs(newDeg + 90) < 3) newDeg = -90;
+      else if (Math.abs(Math.abs(newDeg) - 180) < 3) newDeg = 180;
+
+      setItems((prev) => prev.map((i) => (i.id === it.id ? { ...i, r: newDeg } : i)));
+    };
+
+    const up = () => {
+      window.removeEventListener("pointermove", mv);
+      window.removeEventListener("pointerup", up);
+    };
+
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", up);
+  }
+
+  // Интерактивное масштабирование мышью/тачем за угловые маркеры
+  function startResize(e: React.PointerEvent, it: SceneItem) {
+    e.preventDefault();
+    e.stopPropagation();
+    const r = box.current!.getBoundingClientRect();
+    const centerX = r.left + (it.x / 100) * r.width;
+    const centerY = r.top + (it.y / 100) * r.height;
+    const startDist = Math.max(10, Math.hypot(e.clientX - centerX, e.clientY - centerY));
+    const startScale = it.s || 1;
+
+    const mv = (m: PointerEvent) => {
+      const currentDist = Math.hypot(m.clientX - centerX, m.clientY - centerY);
+      const ratio = currentDist / startDist;
+      const newScale = Math.min(3, Math.max(0.35, Number((startScale * ratio).toFixed(2))));
+
+      setItems((prev) => prev.map((i) => (i.id === it.id ? { ...i, s: newScale } : i)));
+    };
+
+    const up = () => {
+      window.removeEventListener("pointermove", mv);
+      window.removeEventListener("pointerup", up);
+    };
+
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", up);
+  }
+
+  // Масштабирование колесиком мыши прямо по выделенному элементу
+  function handleWheel(e: React.WheelEvent, it: SceneItem) {
+    if (!edit || sel !== it.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY > 0 ? -0.06 : 0.06;
+    const nextScale = Math.min(3, Math.max(0.35, Number(((it.s || 1) + delta).toFixed(2))));
+    setItems((prev) => prev.map((i) => (i.id === it.id ? { ...i, s: nextScale } : i)));
+  }
+
+  function updateScale(id: string, delta: number) {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? { ...i, s: Math.min(3, Math.max(0.35, Number(((i.s || 1) + delta).toFixed(2)))) } : i
+      )
+    );
+  }
+
+  function updateRotate(id: string, delta: number | "reset") {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i;
+        if (delta === "reset") return { ...i, r: 0 };
+        let r = ((i.r || 0) + delta) % 360;
+        if (r > 180) r -= 360;
+        if (r < -180) r += 360;
+        return { ...i, r };
+      })
+    );
+  }
+
+  function moveZInline(id: string, dir: "up" | "down") {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.id === id);
+      if (idx === -1) return prev;
+      const copy = [...prev];
+      const target = dir === "up" ? Math.min(copy.length - 1, idx + 1) : Math.max(0, idx - 1);
+      if (target === idx) return prev;
+      const [item] = copy.splice(idx, 1);
+      copy.splice(target, 0, item);
+      return copy.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
+    });
+  }
+
+  function duplicateInline(id: string) {
+    setItems((prev) => {
+      const item = prev.find((i) => i.id === id);
+      if (!item) return prev;
+      const nextId = `${item.kind}-${Date.now()}`;
+      const clone = { ...item, id: nextId, x: Math.min(90, item.x + 4), y: Math.min(90, item.y + 4) };
+      setSel(nextId);
+      const next = [...prev, clone];
+      return next.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
+    });
+  }
+
+  function removeInline(id: string) {
+    setItems((prev) => {
+      const next = prev.filter((i) => i.id !== id);
+      return next.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
+    });
+    setSel(null);
+  }
+
   return (
     <div
       ref={box}
@@ -1009,7 +1132,7 @@ export default function Overlay({
           setSel(null);
         }
       }}
-      className="pointer-events-none absolute inset-0 overflow-hidden"
+      className="pointer-events-none absolute inset-0"
       style={{ containerType: "inline-size" }}
     >
       {items.map((it, idx) => {
@@ -1017,48 +1140,301 @@ export default function Overlay({
         const width = baseW * (it.s || 1);
         const zIndex = it.zIndex ?? (idx + 1) * 10;
 
+        // Wrapper for the item — position, rotation, zIndex all here
+        // Маркеры и панель рендерим в отдельном div, который НЕ вращается вместе с элементом
+        // — это позволяет плавающей панели всегда оставаться горизонтальной
         return (
           <div
             key={it.id}
-            data-item
-            data-disc={it.kind === "disc" ? "" : undefined}
-            onPointerDown={(e) => down(e, it)}
-            onClick={(e) => {
-              if (!edit && it.kind === "disc" && !noPreview) {
-                e.stopPropagation();
-                onDisc();
-              } else if (edit) {
-                e.stopPropagation();
-                setSel(it.id);
-              }
-            }}
-            title={
-              it.kind === "disc"
-                ? noPreview
-                  ? "превью песни недоступно"
-                  : playing
-                    ? "нажмите, чтобы выключить музыку"
-                    : "нажмите, чтобы включить музыку"
-                : undefined
-            }
             style={{
               position: "absolute",
               left: `${it.x}%`,
               top: `${it.y}%`,
               width: `${width}cqw`,
-              transform: `translate(-50%,-50%) rotate(${it.r}deg)`,
-              pointerEvents: edit || it.kind === "disc" ? "auto" : "none",
-              cursor: edit ? "grab" : it.kind === "disc" ? "pointer" : "default",
-              touchAction: edit ? "none" : "auto",
-              userSelect: "none",
               zIndex,
-              outline: edit && sel === it.id ? "0.35cqw dashed #e11d48" : "none",
-              outlineOffset: "0.8cqw",
-              borderRadius: it.kind === "disc" ? "50%" : "0.6cqw",
-              transition: edit ? "none" : "transform 0.15s ease",
+              // НЕ применяем transform сюда — он только на внутреннем элементе,
+              // чтобы position:absolute маркеры могли выходить за край без обрезки
+              transform: "translate(-50%, -50%)",
+              pointerEvents: "none",
             }}
           >
-            <Body it={it} day={day} playing={playing} noPreview={noPreview} activeSong={activeSong} />
+            {/* Элемент сцены с вращением */}
+            <div
+              data-item
+              data-disc={it.kind === "disc" ? "" : undefined}
+              onPointerDown={(e) => down(e, it)}
+              onWheel={(e) => handleWheel(e, it)}
+              onClick={(e) => {
+                if (!edit && it.kind === "disc" && !noPreview) {
+                  e.stopPropagation();
+                  onDisc();
+                } else if (edit) {
+                  e.stopPropagation();
+                  setSel(it.id);
+                }
+              }}
+              title={
+                it.kind === "disc"
+                  ? noPreview
+                    ? "превью песни недоступно"
+                    : playing
+                      ? "нажмите, чтобы выключить музыку"
+                      : "нажмите, чтобы включить музыку"
+                  : edit
+                    ? "Потяните для перемещения · Колесико для масштаба"
+                    : undefined
+              }
+              style={{
+                position: "relative",
+                width: "100%",
+                transform: `rotate(${it.r}deg)`,
+                pointerEvents: edit || it.kind === "disc" ? "auto" : "none",
+                cursor: edit ? "grab" : it.kind === "disc" ? "pointer" : "default",
+                touchAction: edit ? "none" : "auto",
+                userSelect: "none",
+                outline: edit && sel === it.id ? "0.35cqw dashed #e11d48" : "none",
+                outlineOffset: "0.8cqw",
+                borderRadius: it.kind === "disc" ? "50%" : "0.6cqw",
+                transition: edit ? "none" : "transform 0.15s ease",
+              }}
+            >
+              <Body it={it} day={day} playing={playing} noPreview={noPreview} activeSong={activeSong} />
+            </div>
+
+            {/* Интерактивные маркеры управления — рендерятся поверх, БЕЗ вращения */}
+            {edit && sel === it.id && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  pointerEvents: "none",
+                  overflow: "visible",
+                }}
+              >
+                {/* 4 угловых маркера масштабирования */}
+                <div
+                  onPointerDown={(e) => startResize(e, it)}
+                  title="Потяните для изменения размера (или крутите колесико мыши)"
+                  style={{
+                    position: "absolute",
+                    top: "-1.5cqw",
+                    left: "-1.5cqw",
+                    width: "3cqw",
+                    height: "3cqw",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    border: "0.4cqw solid #e11d48",
+                    boxShadow: "0 0.4cqw 1cqw rgba(0,0,0,0.4)",
+                    cursor: "nwse-resize",
+                    pointerEvents: "auto",
+                    touchAction: "none",
+                    zIndex: 10,
+                  }}
+                />
+                <div
+                  onPointerDown={(e) => startResize(e, it)}
+                  title="Потяните для изменения размера (или крутите колесико мыши)"
+                  style={{
+                    position: "absolute",
+                    top: "-1.5cqw",
+                    right: "-1.5cqw",
+                    width: "3cqw",
+                    height: "3cqw",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    border: "0.4cqw solid #e11d48",
+                    boxShadow: "0 0.4cqw 1cqw rgba(0,0,0,0.4)",
+                    cursor: "nesw-resize",
+                    pointerEvents: "auto",
+                    touchAction: "none",
+                    zIndex: 10,
+                  }}
+                />
+                <div
+                  onPointerDown={(e) => startResize(e, it)}
+                  title="Потяните для изменения размера (или крутите колесико мыши)"
+                  style={{
+                    position: "absolute",
+                    bottom: "-1.5cqw",
+                    left: "-1.5cqw",
+                    width: "3cqw",
+                    height: "3cqw",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    border: "0.4cqw solid #e11d48",
+                    boxShadow: "0 0.4cqw 1cqw rgba(0,0,0,0.4)",
+                    cursor: "nesw-resize",
+                    pointerEvents: "auto",
+                    touchAction: "none",
+                    zIndex: 10,
+                  }}
+                />
+                <div
+                  onPointerDown={(e) => startResize(e, it)}
+                  title="Потяните для изменения размера (или крутите колесико мыши)"
+                  style={{
+                    position: "absolute",
+                    bottom: "-1.5cqw",
+                    right: "-1.5cqw",
+                    width: "3cqw",
+                    height: "3cqw",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    border: "0.4cqw solid #e11d48",
+                    boxShadow: "0 0.4cqw 1cqw rgba(0,0,0,0.4)",
+                    cursor: "nwse-resize",
+                    pointerEvents: "auto",
+                    touchAction: "none",
+                    zIndex: 10,
+                  }}
+                />
+
+                {/* Ножка крутилки */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "-5cqw",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: "0.4cqw",
+                    height: "5cqw",
+                    backgroundColor: "#e11d48",
+                    pointerEvents: "none",
+                    zIndex: 9,
+                  }}
+                />
+                {/* Ручка вращения */}
+                <div
+                  onPointerDown={(e) => startRotate(e, it)}
+                  title="Потяните для вращения элемента"
+                  style={{
+                    position: "absolute",
+                    top: "-8.5cqw",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: "3.8cqw",
+                    height: "3.8cqw",
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    border: "0.4cqw solid #e11d48",
+                    boxShadow: "0 0.5cqw 1.5cqw rgba(0,0,0,0.4)",
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: "2cqw",
+                    cursor: "grab",
+                    pointerEvents: "auto",
+                    touchAction: "none",
+                    userSelect: "none",
+                    zIndex: 10,
+                  }}
+                >
+                  🔄
+                </div>
+
+                {/* Плавающая панель быстрого управления — всегда горизонтальная */}
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  style={{
+                    position: "absolute",
+                    bottom: "calc(100% + 10cqw)",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    zIndex: 20,
+                    pointerEvents: "auto",
+                    whiteSpace: "nowrap",
+                    fontSize: "12px",
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full bg-stone-900/95 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur border border-white/20 select-none font-mono"
+                >
+                  <button
+                    type="button"
+                    onClick={() => updateScale(it.id, -0.1)}
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 transition text-sm"
+                    title="Уменьшить"
+                  >
+                    −
+                  </button>
+                  <span style={{ fontSize: "11px", color: "#d6d3d1", minWidth: "3em", textAlign: "center" }}>
+                    {(it.s || 1).toFixed(2)}x
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => updateScale(it.id, 0.1)}
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 transition text-sm"
+                    title="Увеличить"
+                  >
+                    +
+                  </button>
+
+                  <span style={{ width: "1px", height: "14px", background: "rgba(255,255,255,0.2)", margin: "0 2px", display: "inline-block" }} />
+
+                  <button
+                    type="button"
+                    onClick={() => updateRotate(it.id, -15)}
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 transition"
+                    title="−15°"
+                  >
+                    ↺
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateRotate(it.id, "reset")}
+                    style={{ fontSize: "11px", color: "#d6d3d1", minWidth: "3em", textAlign: "center" }}
+                    className="hover:text-white transition"
+                    title="Сбросить угол"
+                  >
+                    {Math.round(it.r || 0)}°
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateRotate(it.id, 15)}
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 transition"
+                    title="+15°"
+                  >
+                    ↻
+                  </button>
+
+                  <span style={{ width: "1px", height: "14px", background: "rgba(255,255,255,0.2)", margin: "0 2px", display: "inline-block" }} />
+
+                  <button
+                    type="button"
+                    onClick={() => moveZInline(it.id, "up")}
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 transition"
+                    title="Слой выше"
+                  >
+                    ⬆
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveZInline(it.id, "down")}
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 transition"
+                    title="Слой ниже"
+                  >
+                    ⬇
+                  </button>
+
+                  <span style={{ width: "1px", height: "14px", background: "rgba(255,255,255,0.2)", margin: "0 2px", display: "inline-block" }} />
+
+                  <button
+                    type="button"
+                    onClick={() => duplicateInline(it.id)}
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-white/20 transition"
+                    title="Дублировать"
+                  >
+                    📋
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeInline(it.id)}
+                    className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-rose-600 transition"
+                    title="Удалить"
+                  >
+                    🗑
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}

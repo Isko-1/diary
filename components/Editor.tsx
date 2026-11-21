@@ -1,5 +1,5 @@
 "use client";
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { fetchWeather, geocode, getGeo, reverse, GLYPH } from "@/lib/env";
 import { weatherTweak } from "@/lib/style";
 import type { DayPassport, SceneItem, Weather } from "@/lib/types";
@@ -52,6 +52,102 @@ export default function Editor({
   const [geoCountry, setGeoCountry] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
+  const [activeTab, setActiveTab] = useState<"scene" | "story" | "music" | "photos">("scene");
+  const [newTrackQuery, setNewTrackQuery] = useState("");
+  const [addingTrack, setAddingTrack] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleAddNewTrack() {
+    if (!newTrackQuery.trim()) return;
+    setAddingTrack(true);
+    try {
+      const res = await fetch("/api/song", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ link: newTrackQuery.trim() }),
+      });
+      if (!res.ok) throw new Error("Трек не найден");
+      const track = await res.json();
+      setDay((prev) => {
+        if (!prev) return prev;
+        const currentList = prev.playlist && prev.playlist.length > 0 ? prev.playlist : [prev.song];
+        return {
+          ...prev,
+          playlist: [...currentList, track],
+        };
+      });
+      setNewTrackQuery("");
+    } catch (e: any) {
+      alert(e?.message || "Ошибка поиска трека");
+    } finally {
+      setAddingTrack(false);
+    }
+  }
+
+  function handleRemoveTrack(idx: number) {
+    setDay((prev) => {
+      if (!prev) return prev;
+      const currentList = prev.playlist && prev.playlist.length > 0 ? prev.playlist : [prev.song];
+      if (currentList.length <= 1) {
+        alert("В саундтреке должен оставаться хотя бы один трек.");
+        return prev;
+      }
+      const nextList = currentList.filter((_, i) => i !== idx);
+      return {
+        ...prev,
+        playlist: nextList,
+        song: nextList[0],
+      };
+    });
+  }
+
+  async function handleAddPhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const fl = e.target.files;
+    if (!fl || !fl.length) return;
+    const incoming = Array.from(fl).filter((f) => f.type.startsWith("image/"));
+    if (!incoming.length) return;
+    const read = (file: File): Promise<string> =>
+      new Promise((res) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result as string);
+        reader.onerror = () => res("");
+        reader.readAsDataURL(file);
+      });
+    const urls = await Promise.all(incoming.map(read));
+    setDay((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        photos: [...prev.photos, ...urls.filter(Boolean)],
+      };
+    });
+    e.target.value = "";
+  }
+
+  function handleRemovePhoto(idx: number) {
+    setDay((prev) => {
+      if (!prev) return prev;
+      if (prev.photos.length <= 1) {
+        alert("В воспоминании должно остаться хотя бы одно фото.");
+        return prev;
+      }
+      return {
+        ...prev,
+        photos: prev.photos.filter((_, i) => i !== idx),
+      };
+    });
+  }
+
+  function handleMakeCoverPhoto(idx: number) {
+    if (idx === 0) return;
+    setDay((prev) => {
+      if (!prev) return prev;
+      const copy = [...prev.photos];
+      const [it] = copy.splice(idx, 1);
+      copy.unshift(it);
+      return { ...prev, photos: copy };
+    });
+  }
 
   const selectedItem = items.find((i) => i.id === sel);
 
@@ -379,35 +475,77 @@ export default function Editor({
         </div>
       </div>
 
-      {/* Панель добавления элементов */}
-      <div>
-        <span className="block font-mono text-[11px] text-muted uppercase tracking-wider mb-2">
-          + Добавить на сцену:
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { kind: "disc", label: "💿 Винил", desc: "Увеличенный винил" },
-            { kind: "weather", label: "🌦️ Погода", desc: "Виджет погоды" },
-            { kind: "map", label: "🗺️ Карта", desc: "Мини-карта OSM" },
-            { kind: "note", label: "📝 Заметка", desc: "Стикер с текстом" },
-            { kind: "sticker", label: "✨ Стикер", desc: "Эмодзи или бейдж" },
-            { kind: "tape", label: "🎗️ Скотч", desc: "Декоративная лента" },
-            { kind: "stamp", label: "💮 Штамп", desc: "Почтовая печать" },
-            { kind: "place", label: "🏷️ Место", desc: "Бейдж локации" },
-            { kind: "wave", label: "📊 Волна", desc: "Аудио-визуализатор" },
-            { kind: "cassette", label: "📼 Кассета", desc: "Ретро-кассета" },
-            { kind: "playlist", label: "📋 Треклист", desc: "Карточка плейлиста" },
-          ].map((btn) => (
-            <button
-              key={btn.kind}
-              onClick={() => addItem(btn.kind as SceneItem["kind"])}
-              className="rounded-lg border border-[var(--border)] bg-white/80 px-3 py-1.5 font-mono text-xs transition hover:border-[var(--foreground)] hover:bg-white active:scale-95"
-            >
-              {btn.label}
-            </button>
-          ))}
-        </div>
+      {/* Переключатель разделов редактирования */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border)] pb-3">
+        {[
+          { id: "scene", label: "🎨 Сцена и стикеры", count: items.length },
+          { id: "story", label: "✍️ Текст и история" },
+          { id: "music", label: "🎵 Саундтрек", count: (day.playlist?.length || 1) },
+          { id: "photos", label: "📸 Фотографии", count: day.photos.length },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-mono text-xs font-medium transition ${
+              activeTab === tab.id
+                ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
+                : "border border-[var(--border)] bg-white/70 text-muted hover:text-[var(--foreground)] hover:bg-white"
+            }`}
+          >
+            <span>{tab.label}</span>
+            {typeof tab.count === "number" && (
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                  activeTab === tab.id ? "bg-white/20 text-white" : "bg-stone-200 text-stone-700"
+                }`}
+              >
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
+
+      {activeTab === "scene" && (
+        <>
+          {/* Подсказка о свободном управлении */}
+          <div className="rounded-lg bg-rose-50/80 border border-rose-200/80 p-2.5 text-xs font-mono text-rose-900 flex items-center gap-2">
+            <span>💡</span>
+            <span>
+              Свободное управление: кликните на элемент прямо на постере — появятся кнопки масштаба, ручка поворота сверху и угловые маркеры. Также можно масштабировать колесиком мыши!
+            </span>
+          </div>
+
+          {/* Панель добавления элементов */}
+          <div>
+            <span className="block font-mono text-[11px] text-muted uppercase tracking-wider mb-2">
+              + Добавить на сцену:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { kind: "disc", label: "💿 Винил", desc: "Увеличенный винил" },
+                { kind: "weather", label: "🌦️ Погода", desc: "Виджет погоды" },
+                { kind: "map", label: "🗺️ Карта", desc: "Мини-карта OSM" },
+                { kind: "note", label: "📝 Заметка", desc: "Стикер с текстом" },
+                { kind: "sticker", label: "✨ Стикер", desc: "Эмодзи или бейдж" },
+                { kind: "tape", label: "🎗️ Скотч", desc: "Декоративная лента" },
+                { kind: "stamp", label: "💮 Штамп", desc: "Почтовая печать" },
+                { kind: "place", label: "🏷️ Место", desc: "Бейдж локации" },
+                { kind: "wave", label: "📊 Волна", desc: "Аудио-визуализатор" },
+                { kind: "cassette", label: "📼 Кассета", desc: "Ретро-кассета" },
+                { kind: "playlist", label: "📋 Треклист", desc: "Карточка плейлиста" },
+              ].map((btn) => (
+                <button
+                  key={btn.kind}
+                  onClick={() => addItem(btn.kind as SceneItem["kind"])}
+                  className="rounded-lg border border-[var(--border)] bg-white/80 px-3 py-1.5 font-mono text-xs transition hover:border-[var(--foreground)] hover:bg-white active:scale-95"
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
       {/* Настройки выбранного элемента */}
       {selectedItem ? (
@@ -805,6 +943,225 @@ export default function Editor({
       ) : (
         <div className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-muted">
           Кликните по любому элементу на постере, чтобы изменить его стиль, размер, поворот или текст.
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Вкладка: Текст и история дня */}
+      {activeTab === "story" && (
+        <div className="space-y-4 rounded-xl border border-[var(--border)] bg-white/60 p-5 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block font-mono text-xs font-semibold text-muted uppercase mb-1">
+                📅 Дата воспоминания
+              </label>
+              <input
+                type="date"
+                value={day.date}
+                onChange={(e) => setDay((p) => (p ? { ...p, date: e.target.value } : p))}
+                className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 font-mono text-sm outline-none focus:border-stone-900"
+              />
+            </div>
+            <div>
+              <label className="block font-mono text-xs font-semibold text-muted uppercase mb-1">
+                📍 Локация
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={day.geo?.place || ""}
+                  onChange={(e) =>
+                    setDay((p) =>
+                      p
+                        ? {
+                            ...p,
+                            geo: p.geo
+                              ? { ...p.geo, place: e.target.value }
+                              : { lat: 0, lon: 0, place: e.target.value },
+                          }
+                        : p
+                    )
+                  }
+                  placeholder="Город / место события"
+                  className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm outline-none focus:border-stone-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => setGeoModal(true)}
+                  className="rounded-lg border border-[var(--border)] bg-stone-100 px-3 py-2 font-mono text-xs hover:bg-stone-200 whitespace-nowrap"
+                >
+                  GPS / Погода
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-mono text-xs font-semibold text-muted uppercase mb-1">
+              ✨ Заголовок воспоминания
+            </label>
+            <input
+              type="text"
+              value={day.title}
+              onChange={(e) => setDay((p) => (p ? { ...p, title: e.target.value } : p))}
+              className="w-full rounded-lg border border-[var(--border)] bg-white px-3.5 py-2.5 font-serif text-xl font-bold outline-none focus:border-stone-900"
+              placeholder="Название этого дня"
+            />
+          </div>
+
+          <div>
+            <label className="block font-mono text-xs font-semibold text-muted uppercase mb-1">
+              📖 История дня (подробный рассказ)
+            </label>
+            <textarea
+              rows={7}
+              value={day.text}
+              onChange={(e) => setDay((p) => (p ? { ...p, text: e.target.value } : p))}
+              className="w-full rounded-lg border border-[var(--border)] bg-white p-3.5 text-base leading-relaxed text-stone-900 outline-none focus:border-stone-900"
+              placeholder="Опишите этот день подробно…"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Вкладка: Саундтрек дня */}
+      {activeTab === "music" && (
+        <div className="space-y-4 rounded-xl border border-[var(--border)] bg-white/60 p-5 shadow-sm">
+          <div>
+            <label className="block font-mono text-xs font-semibold text-muted uppercase mb-2">
+              🎵 Добавить трек в саундтрек дня
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTrackQuery}
+                onChange={(e) => setNewTrackQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddNewTrack()}
+                placeholder="«Артист - Название» или ссылка YouTube / Spotify"
+                className="flex-1 rounded-lg border border-[var(--border)] bg-white px-3.5 py-2.5 font-mono text-sm outline-none focus:border-stone-900"
+              />
+              <button
+                type="button"
+                disabled={addingTrack || !newTrackQuery.trim()}
+                onClick={handleAddNewTrack}
+                className="rounded-lg bg-stone-900 px-5 py-2.5 font-mono text-xs text-white hover:bg-stone-800 disabled:opacity-50 transition"
+              >
+                {addingTrack ? "Поиск…" : "Добавить"}
+              </button>
+            </div>
+            <p className="font-mono text-[10px] text-muted mt-1">
+              Мы найдем превью трека в Deezer и добавим его в саундтрек и на винил.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <span className="block font-mono text-xs font-semibold text-muted uppercase">
+              Треки дня ({(day.playlist && day.playlist.length > 0 ? day.playlist : [day.song]).length}):
+            </span>
+            <div className="divide-y divide-stone-200 rounded-xl border border-[var(--border)] bg-white overflow-hidden shadow-sm">
+              {(day.playlist && day.playlist.length > 0 ? day.playlist : [day.song]).map((track, i) => (
+                <div key={i} className="flex items-center justify-between p-3 gap-2 hover:bg-stone-50 transition">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-mono text-xs text-muted font-bold w-6 text-center">
+                      #{i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-serif font-semibold text-sm truncate">{track.title}</div>
+                      <div className="font-mono text-xs text-muted truncate">{track.artist}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {i === 0 ? (
+                      <span className="rounded bg-rose-100 px-2 py-0.5 font-mono text-[10px] text-rose-800 font-semibold border border-rose-200">
+                        на виниле
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTrack(i)}
+                      className="rounded p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      title="Удалить трек"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Вкладка: Фотографии дня */}
+      {activeTab === "photos" && (
+        <div className="space-y-4 rounded-xl border border-[var(--border)] bg-white/60 p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="font-mono text-xs font-semibold text-muted uppercase">
+                Фотографии этого воспоминания ({day.photos.length})
+              </span>
+              <p className="font-mono text-[10px] text-muted">
+                Первое фото отображается в центре виниловой пластинки и как обложка дня.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="rounded-lg bg-stone-900 px-4 py-2 font-mono text-xs text-white hover:bg-stone-800 transition"
+            >
+              ➕ Добавить фото
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={handleAddPhotos}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {day.photos.map((src, i) => (
+              <div
+                key={i}
+                className="group relative aspect-square overflow-hidden rounded-xl border border-[var(--border)] bg-stone-100 shadow-sm"
+              >
+                <img src={src} alt={`Фото #${i + 1}`} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                {i === 0 ? (
+                  <div className="absolute top-2 left-2 rounded bg-amber-500/95 px-1.5 py-0.5 font-mono text-[10px] font-bold text-white shadow">
+                    ⭐ Обложка
+                  </div>
+                ) : (
+                  <div className="absolute top-2 left-2 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-white">
+                    #{i + 1}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleRemovePhoto(i)}
+                  className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-rose-600 transition shadow"
+                  title="Удалить фото"
+                >
+                  ✕
+                </button>
+
+                {i > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleMakeCoverPhoto(i)}
+                    className="absolute bottom-2 inset-x-2 rounded bg-amber-500/90 py-1 font-mono text-[10px] font-medium text-white hover:bg-amber-600 shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Сделать обложкой
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
