@@ -16,6 +16,7 @@ export default function DayPage() {
   const [items, setItems] = useState<SceneItem[]>([]);
   const [edit, setEdit] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   // Плейлист и текущий трек
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
@@ -241,6 +242,50 @@ export default function DayPage() {
                 </span>
               )}
             </div>
+
+            {/* Галерея оригинальных фотографий дня */}
+            {day.photos && day.photos.length > 0 && (
+              <div className="rounded-xl border border-[var(--border)] bg-white/70 p-4 space-y-3 backdrop-blur shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📸</span>
+                    <span className="font-mono text-xs uppercase tracking-wider font-semibold text-stone-800">
+                      Фотографии дня ({day.photos.length})
+                    </span>
+                  </div>
+                  <span className="font-mono text-[11px] text-muted">
+                    Нажмите для увеличения
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+                  {day.photos.map((src, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setSelectedPhoto(src)}
+                      className="group relative aspect-square overflow-hidden rounded-lg border border-[var(--border)] bg-stone-100 cursor-pointer shadow-sm hover:shadow-md transition"
+                      title="Открыть фото в полном размере"
+                    >
+                      <img
+                        src={src}
+                        alt={`Фото дня #${i + 1}`}
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      />
+                      {i === 0 && (
+                        <div className="absolute top-1 left-1 rounded bg-amber-500/90 px-1.5 py-0.5 font-mono text-[9px] font-bold text-white shadow backdrop-blur">
+                          ⭐ Обложка
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center">
+                        <span className="opacity-0 group-hover:opacity-100 text-white text-[11px] font-mono bg-black/70 px-2 py-0.5 rounded shadow transition">
+                          🔍 открыть
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </BlurFade>
 
@@ -415,6 +460,32 @@ export default function DayPage() {
           </div>
         </aside>
       </div>
+
+      {/* Модальное окно просмотра оригинального фото в полном размере */}
+      {selectedPhoto && (
+        <div
+          onClick={() => setSelectedPhoto(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm cursor-zoom-out animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-h-[92vh] max-w-[92vw] overflow-hidden rounded-2xl bg-black shadow-2xl border border-white/10"
+          >
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-white hover:bg-rose-600 transition shadow"
+              title="Закрыть"
+            >
+              ✕
+            </button>
+            <img
+              src={selectedPhoto}
+              alt="Фотография воспоминания"
+              className="max-h-[88vh] max-w-full object-contain rounded-xl"
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

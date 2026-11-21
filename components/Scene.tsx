@@ -220,12 +220,12 @@ export default function Scene({ day }: { day: DayPassport }) {
         ctx.save();
         ctx.beginPath(); ctx.rect(F.x, F.y, F.w, F.h); ctx.clip();
         ctx.globalAlpha = alpha;
-        try { ctx.filter = `blur(${softness * 5}px) saturate(${0.75 + 0.5 * day.mood.valence})`; } catch {}
+        try { ctx.filter = `saturate(${0.9 + 0.3 * day.mood.valence})`; } catch {}
         drawCover(ctx, s.img, F.x, F.y, F.w, F.h);
         ctx.filter = "none";
         (Object.keys(W8) as Technique[]).forEach((k) => {
-          if (W8[k] < 0.12) return;
-          layers[k](Math.min(1, W8[k] * 1.8) * alpha, t, s, local);
+          if (W8[k] < 0.15) return;
+          layers[k](Math.min(0.65, W8[k] * 1.1) * alpha, t, s, local);
         });
         fx(alpha);
         ctx.restore();

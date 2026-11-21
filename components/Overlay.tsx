@@ -27,35 +27,38 @@ export function defaultItems(day: DayPassport): SceneItem[] {
     {
       id: "disc",
       kind: "disc",
-      x: 75,
-      y: 71,
-      s: 1.2,
+      x: 84,
+      y: 78,
+      s: 0.88,
       r: 0,
-      size: 40,
+      size: 30,
       variant: "black",
       text: "photo",
+      zIndex: 10,
     },
   ];
   if (day.weather) {
     it.push({
       id: "weather",
       kind: "weather",
-      x: 23,
-      y: 73,
-      s: 1.1,
-      r: -3,
+      x: 22,
+      y: 84,
+      s: 0.82,
+      r: -2,
       variant: "card",
+      zIndex: 20,
     });
   }
   if (day.geo) {
     it.push({
       id: "map",
       kind: "map",
-      x: 80,
-      y: 25,
-      s: 1.05,
-      r: 3,
-      variant: "tile",
+      x: 84,
+      y: 13,
+      s: 0.75,
+      r: 2,
+      variant: "stamp",
+      zIndex: 30,
     });
   }
   return it;

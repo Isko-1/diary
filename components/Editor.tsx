@@ -137,11 +137,11 @@ export default function Editor({
         newItem = {
           id,
           kind: "disc",
-          x: 50,
-          y: 50,
-          s: 1.3,
+          x: 84,
+          y: 78,
+          s: 0.88,
           r: 0,
-          size: 40,
+          size: 30,
           variant: "black",
           text: "photo",
         };
@@ -151,14 +151,14 @@ export default function Editor({
           setGeoModal(true);
           return;
         }
-        newItem = { id, kind: "weather", x: 30, y: 30, s: 1.1, r: -2, variant: "card" };
+        newItem = { id, kind: "weather", x: 22, y: 84, s: 0.82, r: -2, variant: "card" };
         break;
       case "map":
         if (!day.geo) {
           setGeoModal(true);
           return;
         }
-        newItem = { id, kind: "map", x: 70, y: 30, s: 1.05, r: 3, variant: "tile" };
+        newItem = { id, kind: "map", x: 84, y: 13, s: 0.75, r: 2, variant: "stamp" };
         break;
       case "note":
         newItem = {
@@ -319,10 +319,10 @@ export default function Editor({
       const hasM = prev.some((i) => i.kind === "map");
       const next = [...prev];
       if (weather && !hasW) {
-        next.push({ id: `weather-${Date.now()}`, kind: "weather", x: 24, y: 72, s: 1.1, r: -3, variant: "card" });
+        next.push({ id: `weather-${Date.now()}`, kind: "weather", x: 22, y: 84, s: 0.82, r: -2, variant: "card" });
       }
       if (geo && !hasM) {
-        next.push({ id: `map-${Date.now()}`, kind: "map", x: 78, y: 26, s: 1.05, r: 3, variant: "tile" });
+        next.push({ id: `map-${Date.now()}`, kind: "map", x: 84, y: 13, s: 0.75, r: 2, variant: "stamp" });
       }
       return next.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
     });

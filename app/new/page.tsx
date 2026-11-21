@@ -21,6 +21,15 @@ const post = async (url: string, body: unknown) => {
   return r.json();
 };
 
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function NewDay() {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -31,31 +40,28 @@ export default function NewDay() {
   const [songs, setSongs] = useState<string[]>([""]);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
-  useEffect(() => {
-    const list = files.map((file) => ({
-      file,
-      url: URL.createObjectURL(file),
-    }));
-    setPreviews(list);
-
-    return () => {
-      list.forEach((p) => URL.revokeObjectURL(p.url));
-    };
-  }, [files]);
-
-  function appendFiles(newFileList: FileList | File[]) {
+  async function appendFiles(newFileList: FileList | File[]) {
     const incoming = Array.from(newFileList).filter((f) => f.type.startsWith("image/"));
     if (!incoming.length) return;
-    setFiles((prev) => {
-      const unique = incoming.filter(
-        (f) => !prev.some((p) => p.name === f.name && p.size === f.size && p.lastModified === f.lastModified)
-      );
-      return [...prev, ...unique];
-    });
+    const toAdd = incoming.filter(
+      (f) => !files.some((p) => p.name === f.name && p.size === f.size && p.lastModified === f.lastModified)
+    );
+    if (!toAdd.length) return;
+
+    const loaded = await Promise.all(
+      toAdd.map(async (file) => ({
+        file,
+        url: await readAsDataUrl(file),
+      }))
+    );
+
+    setFiles((prev) => [...prev, ...toAdd]);
+    setPreviews((prev) => [...prev, ...loaded]);
   }
 
   function removePhoto(idx: number) {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
+    setPreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
   function makeCover(idx: number) {
@@ -66,11 +72,17 @@ export default function NewDay() {
       copy.unshift(item);
       return copy;
     });
+    setPreviews((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(idx, 1);
+      copy.unshift(item);
+      return copy;
+    });
   }
 
   function movePhoto(idx: number, dir: -1 | 1) {
+    const target = idx + dir;
     setFiles((prev) => {
-      const target = idx + dir;
       if (target < 0 || target >= prev.length) return prev;
       const copy = [...prev];
       const temp = copy[idx];
@@ -78,6 +90,19 @@ export default function NewDay() {
       copy[target] = temp;
       return copy;
     });
+    setPreviews((prev) => {
+      if (target < 0 || target >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[target];
+      copy[target] = temp;
+      return copy;
+    });
+  }
+
+  function clearAllPhotos() {
+    setFiles([]);
+    setPreviews([]);
   }
 
   function addSongField() {
@@ -212,7 +237,10 @@ export default function NewDay() {
 
     try {
       setBusy("Читаю фото…");
-      const photos = await Promise.all(files.map((f) => fileToDataUrl(f)));
+      const photos =
+        previews.length === files.length && previews.every((p) => p.url)
+          ? previews.map((p) => p.url)
+          : await Promise.all(files.map((f) => fileToDataUrl(f)));
       const photoStats = await analyzeAll(photos);
 
       setBusy("Слушаю текст и плейлист дня…");
@@ -318,7 +346,7 @@ export default function NewDay() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setFiles([])}
+                    onClick={clearAllPhotos}
                     className="font-mono text-xs text-rose-600 hover:underline"
                   >
                     Очистить все
