@@ -49,17 +49,29 @@ export default function DayPage() {
     setPlaying(false);
     setNoPreview(false);
 
-      (async () => {
-        const dz = activeSong.deezerId;
-        const j = dz ? await fetch(`/api/song?deezerId=${dz}`).then((r) => r.json()).catch(() => null) : null;
-        if (dead) return;
-        if (j?.coverUrl && !activeSong.coverUrl) {
-          // Сохраняем обложку в объект песни, если её не было
-          activeSong.coverUrl = j.coverUrl;
-          setDay((prev) => (prev ? { ...prev } : prev));
-        }
-        if (!j?.preview) return setNoPreview(true);
-        a.src = j.preview;
+    (async () => {
+      const dz = activeSong.deezerId;
+      const url = dz
+        ? `/api/song?deezerId=${dz}`
+        : `/api/song?title=${encodeURIComponent(activeSong.title)}&artist=${encodeURIComponent(activeSong.artist)}`;
+
+      const j = await fetch(url).then((r) => r.json()).catch(() => null);
+      if (dead) return;
+
+      if (j?.coverUrl && j.coverUrl !== activeSong.coverUrl) {
+        setDay((prev) => {
+          if (!prev) return prev;
+          const pl = prev.playlist && prev.playlist.length > 0 ? [...prev.playlist] : [{ ...prev.song }];
+          if (pl[currentSongIndex]) {
+            pl[currentSongIndex] = { ...pl[currentSongIndex], coverUrl: j.coverUrl };
+          }
+          const updatedSong = currentSongIndex === 0 ? { ...prev.song, coverUrl: j.coverUrl } : prev.song;
+          return { ...prev, song: updatedSong, playlist: pl };
+        });
+      }
+
+      if (!j?.preview) return setNoPreview(true);
+      a.src = j.preview;
         const offset = activeSong.startTime ?? 0;
         if (offset > 0) {
           a.currentTime = offset;

@@ -14,11 +14,28 @@ const j = async (url: string) => {
 
 /** Превью запрашиваем свежим при открытии дня: ссылки Deezer протухают. */
 export async function GET(req: Request) {
-  const id = new URL(req.url).searchParams.get("deezerId");
-  if (!id || !/^\d+$/.test(id)) return NextResponse.json({ error: "deezerId" }, { status: 400 });
-  const t = await j(`https://api.deezer.com/track/${id}`);
-  const coverUrl = t?.album?.cover_medium ?? t?.album?.cover_big ?? t?.artist?.picture_medium ?? null;
-  return NextResponse.json({ preview: t?.preview ?? null, coverUrl });
+  const url = new URL(req.url);
+  const id = url.searchParams.get("deezerId");
+  const qTitle = url.searchParams.get("title");
+  const qArtist = url.searchParams.get("artist");
+
+  if (id && /^\d+$/.test(id)) {
+    const t = await j(`https://api.deezer.com/track/${id}`);
+    const coverUrl = t?.album?.cover_medium ?? t?.album?.cover_big ?? t?.artist?.picture_medium ?? null;
+    return NextResponse.json({ preview: t?.preview ?? null, coverUrl });
+  }
+
+  if (qTitle) {
+    const q = encodeURIComponent(`${qArtist ?? ""} ${qTitle}`.trim());
+    const s = await j(`https://api.deezer.com/search?q=${q}&limit=1`);
+    const hit = s?.data?.[0];
+    if (hit) {
+      const coverUrl = hit.album?.cover_medium ?? hit.album?.cover_big ?? hit.artist?.picture_medium ?? null;
+      return NextResponse.json({ preview: hit.preview ?? null, coverUrl, deezerId: hit.id });
+    }
+  }
+
+  return NextResponse.json({ error: "deezerId or title required" }, { status: 400 });
 }
 
 export async function POST(req: Request) {

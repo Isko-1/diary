@@ -144,9 +144,15 @@ function Body({
       const spinSpeed = (5.5 - 3.8 * tempoVal).toFixed(1);
 
       // Вариант центрального лейбла: song | photo | vintage | palette | minimal
+      // Если у элемента явно не задан другой стиль (или стоит song/photo по умолчанию), отдаем предпочтение обложке текущей песни
       const labelType = it.text || "song";
       const songCoverUrl = currentSong.coverUrl;
       const photoUrl = day.photos[0];
+
+      // Картинка центрального яблока: если выбран стиль 'song' или 'photo', в первую очередь берем обложку активного трека
+      const effectiveCover = (labelType === "song" || labelType === "photo")
+        ? (songCoverUrl || photoUrl)
+        : null;
 
       return (
         <div
@@ -216,12 +222,12 @@ function Body({
                 textAlign: "center",
               }}
             >
-              {(labelType === "song" && (songCoverUrl || photoUrl)) ? (
+              {effectiveCover ? (
                 <div
                   style={{
                     position: "absolute",
                     inset: 0,
-                    backgroundImage: `url("${songCoverUrl || photoUrl}")`,
+                    backgroundImage: `url("${effectiveCover}")`,
                     backgroundPosition: "center",
                     backgroundSize: "cover",
                     filter: "contrast(1.05) saturate(1.1)",
@@ -255,25 +261,6 @@ function Body({
                   >
                     {currentSong.title}
                   </div>
-                </div>
-              ) : labelType === "photo" && photoUrl ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    backgroundImage: `url("${photoUrl}")`,
-                    backgroundPosition: "center",
-                    backgroundSize: "cover",
-                    filter: "contrast(1.05) saturate(1.1)",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: "radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 100%)",
-                    }}
-                  />
                 </div>
               ) : labelType === "vintage" ? (
                 <div
