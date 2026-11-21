@@ -69,26 +69,76 @@ export async function reverse(g: Geo): Promise<string | undefined> {
 }
 
 /**
- * Город → координаты через Open-Meteo Geocoding API (без ключа, поддержка русского языка).
+ * Город (+ страна) → координаты и название места.
+ * 1. Сначала опрашивает Nominatim (OpenStreetMap), который понимает уточнения стран,
+ *    разные языки и автоматически отдает приоритет крупным городам перед деревнями.
+ * 2. В случае ошибки/таймаута — fallback на Open-Meteo Geocoding API с фильтрацией по стране.
  */
-export async function geocode(name: string): Promise<Geo | null> {
-  if (!name.trim()) return null;
-  try {
-    const j = await get(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name.trim())}&count=1&language=ru`,
-    );
-    const r = j.results?.[0];
-    if (!r) return null;
-    const parts = [r.name, r.admin1, r.country].filter(Boolean);
-    const place = parts.length > 1 ? `${r.name}, ${r.country || r.admin1}` : r.name;
-    return {
-      lat: +r.latitude.toFixed(3),
-      lon: +r.longitude.toFixed(3),
-      place,
-    };
-  } catch {
-    return null;
+export async function geocode(name: string, country?: string): Promise<Geo | null> {
+  const cleanName = name.trim();
+  if (!cleanName) return null;
+
+  // Формируем полный поисковый запрос (например: "Уральск, Казахстан")
+  let fullQuery = cleanName;
+  if (country && country.trim()) {
+    fullQuery = `${cleanName}, ${country.trim()}`;
   }
+
+  // 1. Пробуем Nominatim (OpenStreetMap)
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullQuery)}&format=jsonv2&accept-language=ru&limit=5`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "GenesisDiary/1.0" },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (res.ok) {
+      const items = await res.json();
+      if (Array.isArray(items) && items.length > 0) {
+        const best = items[0];
+        const parts = String(best.display_name || "")
+          .split(", ")
+          .map((s) => s.trim());
+        const city = parts[0] || cleanName;
+        const countryFound = parts[parts.length - 1];
+        const place = parts.length > 1 && countryFound ? `${city}, ${countryFound}` : city;
+        return {
+          lat: +parseFloat(best.lat).toFixed(3),
+          lon: +parseFloat(best.lon).toFixed(3),
+          place,
+        };
+      }
+    }
+  } catch {}
+
+  // 2. Fallback: Open-Meteo Geocoding
+  try {
+    const cityNameOnly = cleanName.split(/[,(]/)[0].trim();
+    const j = await get(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityNameOnly)}&count=10&language=ru`,
+    );
+    const results = j.results;
+    if (Array.isArray(results) && results.length > 0) {
+      let match = results[0];
+      const targetCountry = (country || cleanName.split(/[,(]/)[1] || "").toLowerCase().trim();
+      if (targetCountry) {
+        const found = results.find(
+          (r: any) =>
+            (r.country && r.country.toLowerCase().includes(targetCountry)) ||
+            (r.country_code && r.country_code.toLowerCase() === targetCountry),
+        );
+        if (found) match = found;
+      }
+      const parts = [match.name, match.country].filter(Boolean);
+      const place = parts.length > 1 ? `${match.name}, ${match.country}` : match.name;
+      return {
+        lat: +match.latitude.toFixed(3),
+        lon: +match.longitude.toFixed(3),
+        place,
+      };
+    }
+  } catch {}
+
+  return null;
 }
 
 export function kindOf(c: number): [WeatherKind, string] {

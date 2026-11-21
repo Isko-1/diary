@@ -44,6 +44,7 @@ export default function NewDay() {
   const [geo, setGeo] = useState<Geo | null>(null);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [geoCity, setGeoCity] = useState("");
+  const [geoCountry, setGeoCountry] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
 
@@ -113,15 +114,16 @@ export default function NewDay() {
     }
   }
 
-  // Ручной поиск по названию города СТРОГО за выбранную дату
+  // Ручной поиск по названию города и страны СТРОГО за выбранную дату
   async function searchCity() {
     if (!geoCity.trim()) return;
     setGeoLoading(true);
-    setGeoMsg(`Ищем город и проверяем погоду за выбранную дату ${date}…`);
+    const queryLabel = geoCountry.trim() ? `${geoCity.trim()}, ${geoCountry.trim()}` : geoCity.trim();
+    setGeoMsg(`Ищем «${queryLabel}» и проверяем погоду за выбранную дату ${date}…`);
     try {
-      const g = await geocode(geoCity);
+      const g = await geocode(geoCity, geoCountry);
       if (!g) {
-        setGeoMsg("Город не найден. Проверьте написание.");
+        setGeoMsg("Город не найден. Проверьте написание города и страны.");
         return;
       }
       setGeoMsg(`Найден: ${g.place}. Запрашиваем погоду за ${date}…`);
@@ -145,6 +147,7 @@ export default function NewDay() {
     setWeather(null);
     setGeoMsg("");
     setGeoCity("");
+    setGeoCountry("");
   }
 
   async function submit(e: React.FormEvent) {
@@ -375,28 +378,46 @@ export default function NewDay() {
                   </span>
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={geoCity}
-                    onChange={(e) => setGeoCity(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        searchCity();
-                      }
-                    }}
-                    placeholder="Или укажите город (Москва, Сочи, Рим...)"
-                    className="flex-1 rounded-lg border border-[var(--border)] bg-white/60 px-3 py-2 font-mono text-xs outline-none focus:border-[var(--foreground)]"
-                  />
-                  <button
-                    type="button"
-                    disabled={geoLoading || !geoCity.trim()}
-                    onClick={searchCity}
-                    className="rounded-lg bg-[var(--foreground)] px-4 py-2 font-mono text-xs text-[var(--background)] disabled:opacity-50"
-                  >
-                    Найти
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={geoCity}
+                      onChange={(e) => setGeoCity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          searchCity();
+                        }
+                      }}
+                      placeholder="Город (например: Уральск, Рим...)"
+                      className="flex-1 rounded-lg border border-[var(--border)] bg-white/60 px-3 py-2 font-mono text-xs outline-none focus:border-[var(--foreground)]"
+                    />
+                    <input
+                      type="text"
+                      value={geoCountry}
+                      onChange={(e) => setGeoCountry(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          searchCity();
+                        }
+                      }}
+                      placeholder="Страна (например: Казахстан, Италия)"
+                      className="sm:w-56 rounded-lg border border-[var(--border)] bg-white/60 px-3 py-2 font-mono text-xs outline-none focus:border-[var(--foreground)]"
+                    />
+                    <button
+                      type="button"
+                      disabled={geoLoading || !geoCity.trim()}
+                      onClick={searchCity}
+                      className="rounded-lg bg-[var(--foreground)] px-5 py-2 font-mono text-xs text-[var(--background)] disabled:opacity-50 transition cursor-pointer"
+                    >
+                      Найти
+                    </button>
+                  </div>
+                  <p className="font-mono text-[10px] text-muted">
+                    💡 Подсказка: если городов с таким названием несколько, укажите страну рядом (или напишите «Уральск, Казахстан»).
+                  </p>
                 </div>
               </div>
             )}

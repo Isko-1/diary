@@ -49,6 +49,7 @@ export default function Editor({
   const [geoModal, setGeoModal] = useState(false);
   const [modalDate, setModalDate] = useState(day.date);
   const [geoCity, setGeoCity] = useState("");
+  const [geoCountry, setGeoCountry] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
 
@@ -227,15 +228,16 @@ export default function Editor({
     }
   }
 
-  // Ручной поиск города строго за выбранную дату
+  // Ручной поиск города и страны строго за выбранную дату
   async function searchCity() {
     if (!geoCity.trim()) return;
     setGeoLoading(true);
-    setGeoMsg(`Ищем город и погоду за ${modalDate}…`);
+    const queryLabel = geoCountry.trim() ? `${geoCity.trim()}, ${geoCountry.trim()}` : geoCity.trim();
+    setGeoMsg(`Ищем «${queryLabel}» и погоду за ${modalDate}…`);
     try {
-      const g = await geocode(geoCity);
+      const g = await geocode(geoCity, geoCountry);
       if (!g) {
-        setGeoMsg("Город не найден. Попробуйте уточнить запрос.");
+        setGeoMsg("Город не найден. Проверьте написание города и страны.");
         return;
       }
       setGeoMsg(`Найден: ${g.place}. Запрашиваем погоду за ${modalDate}…`);
@@ -825,24 +827,35 @@ export default function Editor({
               </div>
 
               <div className="space-y-2">
-                <label className="block font-mono text-xs text-muted">Укажите город вручную:</label>
-                <div className="flex gap-2">
+                <label className="block font-mono text-xs text-muted font-semibold">Укажите город и страну:</label>
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={geoCity}
                     onChange={(e) => setGeoCity(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && searchCity()}
-                    placeholder="Санкт-Петербург, Сочи, Тбилиси..."
+                    placeholder="Город (например: Уральск)"
                     className="flex-1 rounded-xl border border-[var(--border)] px-4 py-2.5 font-mono text-sm outline-none focus:border-stone-800"
+                  />
+                  <input
+                    type="text"
+                    value={geoCountry}
+                    onChange={(e) => setGeoCountry(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && searchCity()}
+                    placeholder="Страна (например: Казахстан)"
+                    className="sm:w-48 rounded-xl border border-[var(--border)] px-4 py-2.5 font-mono text-sm outline-none focus:border-stone-800"
                   />
                   <button
                     disabled={geoLoading || !geoCity.trim()}
                     onClick={searchCity}
-                    className="rounded-xl border border-stone-900 bg-stone-100 px-5 py-2.5 font-mono text-sm font-medium hover:bg-stone-200 disabled:opacity-50"
+                    className="rounded-xl border border-stone-900 bg-stone-100 px-5 py-2.5 font-mono text-sm font-medium hover:bg-stone-200 disabled:opacity-50 transition cursor-pointer"
                   >
                     Найти
                   </button>
                 </div>
+                <p className="font-mono text-[10px] text-muted">
+                  💡 Укажите страну рядом, чтобы найти нужный город (например: «Уральск» + «Казахстан»).
+                </p>
               </div>
 
               {geoMsg && (
