@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import CalendarTimeline from "@/components/CalendarTimeline";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { MagicCard } from "@/components/ui/magic-card";
@@ -159,6 +160,13 @@ export default function Archive() {
           </Link>
         </BlurFade>
       </header>
+
+      {/* 📅 Календарь-таймлайн месяца с подсветкой собранных дней */}
+      <section className="relative mb-12">
+        <BlurFade delay={0.4}>
+          <CalendarTimeline days={days ?? []} />
+        </BlurFade>
+      </section>
 
       {days === null ? null : days.length === 0 ? (
         <BlurFade>
