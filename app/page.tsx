@@ -7,14 +7,14 @@ import { GridPattern } from "@/components/ui/grid-pattern";
 import { MagicCard } from "@/components/ui/magic-card";
 import { GLYPH } from "@/lib/env";
 import { moodColor, moodLabel } from "@/lib/mood";
-import { listDays } from "@/lib/store";
+import { deleteDay, listDays } from "@/lib/store";
 import { dominant, techniqueName } from "@/lib/style";
 import type { DayPassport, Technique } from "@/lib/types";
 
 const GRAIN =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
-function DayCard({ d }: { d: DayPassport }) {
+function DayCard({ d, onDelete }: { d: DayPassport; onDelete?: (id: string, title: string) => void }) {
   const [c0, c1] = [d.style.params.palette[0] ?? "#bbb", d.style.params.palette[1] ?? "#888"];
   const coverPhoto = d.photos?.[0];
   const mood = moodColor(d.mood);
@@ -92,10 +92,26 @@ function DayCard({ d }: { d: DayPassport }) {
 
           {/* Бейдж погоды */}
           {d.weather && (
-            <span className="absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur flex items-center gap-1.5">
+            <span className="absolute right-10 top-3 rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur flex items-center gap-1.5">
               <span>{GLYPH[d.weather.kind]}</span>
               <span>{d.weather.temp > 0 ? "+" : ""}{d.weather.temp}°</span>
             </span>
+          )}
+
+          {/* Кнопка быстрого удаления записи */}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(d.id, d.title);
+              }}
+              className="absolute right-3 top-3 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white/80 hover:bg-rose-600 hover:text-white transition backdrop-blur text-xs"
+              title="Удалить воспоминание"
+            >
+              ✕
+            </button>
           )}
 
           {/* Бейдж количества фото */}
@@ -136,6 +152,12 @@ export default function Archive() {
   useEffect(() => {
     listDays().then(setDays);
   }, []);
+
+  async function handleDelete(id: string, title: string) {
+    if (!confirm(`Удалить воспоминание «${title}» навсегда?`)) return;
+    await deleteDay(id);
+    setDays((prev) => (prev ? prev.filter((d) => d.id !== id) : null));
+  }
 
   return (
     <main className="relative mx-auto max-w-6xl px-6 py-16">
@@ -190,7 +212,7 @@ export default function Archive() {
         <div className="relative grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {days.map((d, i) => (
             <BlurFade key={d.id} delay={0.1 + i * 0.06}>
-              <DayCard d={d} />
+              <DayCard d={d} onDelete={handleDelete} />
             </BlurFade>
           ))}
         </div>

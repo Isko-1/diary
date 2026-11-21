@@ -1,17 +1,18 @@
 "use client";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Overlay, { defaultItems } from "@/components/Overlay";
 import Editor from "@/components/Editor";
 import Scene from "@/components/Scene";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { GLYPH } from "@/lib/env";
-import { getDay, saveDay } from "@/lib/store";
+import { deleteDay, getDay, saveDay } from "@/lib/store";
 import type { DayPassport, SceneItem } from "@/lib/types";
 
 export default function DayPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [day, setDay] = useState<DayPassport | null | undefined>(undefined);
   const [items, setItems] = useState<SceneItem[]>([]);
   const [edit, setEdit] = useState(false);
@@ -34,6 +35,49 @@ export default function DayPage() {
       }
     });
   }, [id]);
+
+  // Предзагрузка обложек для всех треков плейлиста сразу при открытии дня
+  useEffect(() => {
+    const pl = day?.playlist;
+    if (!day || !pl || pl.length === 0) return;
+    let dead = false;
+
+    (async () => {
+      let changed = false;
+      const updatedPlaylist = [...pl];
+
+      await Promise.all(
+        updatedPlaylist.map(async (track, idx) => {
+          if (track.coverUrl) return;
+          const dz = track.deezerId;
+          const q = `title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`;
+          const url = dz ? `/api/song?deezerId=${dz}&${q}` : `/api/song?${q}`;
+          const res = await fetch(url).then((r) => r.json()).catch(() => null);
+          if (res?.coverUrl && !dead) {
+            updatedPlaylist[idx] = { ...updatedPlaylist[idx], coverUrl: res.coverUrl };
+            changed = true;
+          }
+        })
+      );
+
+      if (changed && !dead) {
+        setDay((prev) => {
+          if (!prev) return prev;
+          const updated = {
+            ...prev,
+            song: updatedPlaylist[0] ? { ...prev.song, coverUrl: updatedPlaylist[0].coverUrl } : prev.song,
+            playlist: updatedPlaylist,
+          };
+          saveDay(updated).catch(() => {});
+          return updated;
+        });
+      }
+    })();
+
+    return () => {
+      dead = true;
+    };
+  }, [day?.id]);
 
   const playlist = day?.playlist && day.playlist.length > 0 ? day.playlist : day ? [day.song] : [];
   const activeSong = playlist[currentSongIndex] || day?.song;
@@ -139,6 +183,15 @@ export default function DayPage() {
     setDay(updated);
   }
 
+  // Удаление воспоминания
+  async function handleDeleteDay() {
+    if (!day) return;
+    const ok = confirm(`Удалить воспоминание «${day.title}» (${day.date}) навсегда?`);
+    if (!ok) return;
+    await deleteDay(day.id);
+    router.push("/");
+  }
+
   if (day === undefined) {
     return (
       <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10 space-y-8">
@@ -225,6 +278,17 @@ export default function DayPage() {
             }`}
           >
             <span>{edit ? "✕ Закрыть редактор" : "✨ Кастомизация"}</span>
+          </button>
+
+          {/* Кнопка удаления воспоминания */}
+          <button
+            type="button"
+            onClick={handleDeleteDay}
+            className="flex items-center gap-1.5 rounded-full border border-stone-300 bg-white/70 px-3.5 py-2 font-mono text-xs text-stone-600 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 transition shrink-0 shadow-sm"
+            title="Удалить это воспоминание"
+          >
+            <span>🗑️</span>
+            <span className="hidden sm:inline">Удалить</span>
           </button>
         </div>
       </div>

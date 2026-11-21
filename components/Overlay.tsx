@@ -113,6 +113,39 @@ export const VINYL_STYLES: Record<string, { bg: string; rim: string; groove: str
   },
 };
 
+// Генерация уникальной графической обложки для трека, если нет сетевой обложки
+export function getTrackArtwork(song: Song, index: number, palette: string[]): string {
+  if (song.coverUrl) return song.coverUrl;
+  const c1 = palette[index % palette.length] || "#ca8a04";
+  const c2 = palette[(index + 1) % palette.length] || "#1e1b4b";
+  const title = (song.title || "Track").replace(/[<>&"]/g, "");
+  const artist = (song.artist || "Genesis").replace(/[<>&"]/g, "");
+  const num = String(index + 1).padStart(2, "0");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+    <defs>
+      <radialGradient id="g" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="${c1}"/>
+        <stop offset="75%" stop-color="${c2}"/>
+        <stop offset="100%" stop-color="#09090b"/>
+      </radialGradient>
+      <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.3)"/>
+        <stop offset="50%" stop-color="transparent"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0.5)"/>
+      </linearGradient>
+    </defs>
+    <rect width="400" height="400" fill="url(#g)"/>
+    <circle cx="200" cy="200" r="186" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
+    <circle cx="200" cy="200" r="145" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" stroke-dasharray="4 4"/>
+    <circle cx="200" cy="200" r="95" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+    <rect width="400" height="400" fill="url(#shine)"/>
+    <text x="200" y="115" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="18" font-weight="700" fill="rgba(255,255,255,0.85)" letter-spacing="4">SIDE A · TRK ${num}</text>
+    <text x="200" y="275" text-anchor="middle" font-family="Georgia, serif" font-size="24" font-weight="bold" fill="#ffffff">${title.length > 18 ? title.slice(0, 16) + "…" : title}</text>
+    <text x="200" y="308" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="15" fill="rgba(255,255,255,0.8)">${artist.length > 22 ? artist.slice(0, 20) + "…" : artist}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 function Body({
   it,
   day,
@@ -154,26 +187,21 @@ function Body({
 
       // Вариант центрального лейбла: song | photo | vintage | palette | minimal
       const labelType = it.text || "song";
-      const songCoverUrl = currentSong.coverUrl;
 
       // Если в галерее несколько фото, ротируем их по трекам
-      const photoForTrack = day.photos && day.photos.length > 0
+      const photoForTrack = day.photos && day.photos.length > 1
         ? day.photos[songIndex % day.photos.length]
         : null;
 
-      // Приоритет обложки:
-      // 1) Если у трека есть coverUrl — показываем обложку трека
-      // 2) Если выбран режим photo — показываем фото дня для этого трека
-      // 3) Если режим song и в галерее есть фото, но нет обложки трека — ротируем фото
+      // Обложка центра пластинки:
+      // 1) Если у песни есть обложка (Deezer / iTunes) — берем ее
+      // 2) Если пользователь выбрал фото и в галерее >1 фото — ротируем фото дня по трекам
+      // 3) Иначе генерируем индивидуальный графический виниловый арт для этого конкретного трека
       let effectiveCover: string | null = null;
-      if (labelType === "song") {
-        // В режиме трека приоритет у обложки трека; если ее нет и в галерее >1 фото, берем фото трека
-        effectiveCover = songCoverUrl || (day.photos && day.photos.length > 1 ? photoForTrack : null);
-      } else if (labelType === "photo") {
-        // В режиме фото: если фото в галерее несколько, ротируем их; если фото всего одно, но есть обложка трека — берем обложку трека, чтобы картинка менялась при смене трека
-        effectiveCover = (day.photos && day.photos.length > 1)
-          ? photoForTrack
-          : (songCoverUrl || photoForTrack);
+      if (labelType === "photo") {
+        effectiveCover = photoForTrack || currentSong.coverUrl || getTrackArtwork(currentSong, songIndex, pal);
+      } else if (labelType === "song") {
+        effectiveCover = currentSong.coverUrl || getTrackArtwork(currentSong, songIndex, pal);
       }
 
       return (
@@ -246,7 +274,7 @@ function Body({
             >
               {effectiveCover ? (
                 <div
-                  key={effectiveCover}
+                  key={`vinyl-label-${songIndex}-${currentSong.title}-${effectiveCover}`}
                   style={{
                     position: "absolute",
                     inset: 0,
