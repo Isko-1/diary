@@ -8,6 +8,7 @@
   --font-serif: "Fraunces", Georgia, serif;
   --font-hand: "Caveat", cursive;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Unbounded", sans-serif;
 }
 
 :root {
@@ -15,10 +16,29 @@
   --foreground: #1d1a16;
   --border: #d9d0c0;
   --muted: #7a7064;
+  /* Настроение — цвета из оригинального Genesis */
+  --mood-calm:    #8cc9b4;
+  --mood-bright:  #f5d86b;
+  --mood-dreamy:  #b7a6f2;
+  --mood-energy:  #ff7a59;
+  --mood-neutral: #c9d0e3;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Fraunces", Georgia, serif;
+  /* Мобайл: safe area для notch и home indicator */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Плавная прокрутка */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Убираем резкие скролл-прыжки на iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
 }

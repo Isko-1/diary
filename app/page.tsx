@@ -12,14 +12,53 @@ import type { DayPassport } from "@/lib/types";
 const GRAIN =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
+/** Маппинг valence → цвет настроения из оригинального Genesis */
+function moodColor(valence: number): string {
+  if (valence >= 0.8) return "#ff7a59"; // энергично — оранжевый
+  if (valence >= 0.6) return "#f5d86b"; // светло — жёлтый
+  if (valence >= 0.4) return "#b7a6f2"; // мечтательно — лавандовый
+  if (valence >= 0.2) return "#8cc9b4"; // спокойно — мятный
+  return "#c9d0e3";                     // нейтрально — серо-синий
+}
+
 function DayCard({ d }: { d: DayPassport }) {
   const [c0, c1] = [d.style.params.palette[0] ?? "#bbb", d.style.params.palette[1] ?? "#888"];
+  const coverPhoto = d.photos?.[0];
+  const mood = moodColor(d.mood.valence);
 
   return (
     <Link href={`/day/${d.id}`} title={`${d.title} · ${d.song.title}`} className="group block rounded-xl">
       <MagicCard className="rounded-xl overflow-hidden" gradientFrom={c0} gradientTo={c1} gradientColor={c0 + "33"} gradientSize={260}>
-        <div className="relative aspect-[4/3] overflow-hidden" style={{ background: `linear-gradient(135deg, ${c0}, ${c1})` }}>
-          <div className="absolute inset-0 opacity-40 mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
+        {/* Верхняя цветная полоска настроения (из оригинального дизайна Genesis) */}
+        <div
+          className="h-1.5 w-full"
+          style={{ background: mood }}
+        />
+
+        <div
+          className="relative aspect-[4/3] overflow-hidden"
+          style={{
+            background: coverPhoto
+              ? undefined
+              : `linear-gradient(135deg, ${c0}, ${c1})`,
+          }}
+        >
+          {/* Фото обложки (если есть) */}
+          {coverPhoto ? (
+            <>
+              <img
+                src={coverPhoto}
+                alt={d.title}
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              />
+              {/* Градиентный оверлей поверх фото */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+              <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
+            </>
+          ) : (
+            /* Нет фото — генеративный градиент с зерном */
+            <div className="absolute inset-0 opacity-40 mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
+          )}
 
           {/* Винил, выглядывающий из конверта при наведении */}
           <div
@@ -43,11 +82,18 @@ function DayCard({ d }: { d: DayPassport }) {
             {techniqueName(dominant(d.style.weights)).toUpperCase()}
           </span>
 
-          {/* Бейдж погоды, если есть */}
+          {/* Бейдж погоды */}
           {d.weather && (
             <span className="absolute right-3 top-3 rounded-full bg-black/40 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur flex items-center gap-1.5">
               <span>{GLYPH[d.weather.kind]}</span>
               <span>{d.weather.temp > 0 ? "+" : ""}{d.weather.temp}°</span>
+            </span>
+          )}
+
+          {/* Бейдж количества фото */}
+          {d.photos?.length > 1 && (
+            <span className="absolute left-3 bottom-3 rounded-full bg-black/50 px-2 py-0.5 font-mono text-[10px] text-white backdrop-blur">
+              📷 {d.photos.length}
             </span>
           )}
         </div>
@@ -57,7 +103,10 @@ function DayCard({ d }: { d: DayPassport }) {
             <span>{d.date}</span>
             {d.geo?.place && <span className="truncate max-w-[140px]">📍 {d.geo.place}</span>}
           </div>
-          <h3 className="text-lg font-serif font-bold leading-snug line-clamp-1 group-hover:text-rose-900 transition-colors">
+          <h3
+            className="text-lg font-bold leading-snug line-clamp-1 group-hover:text-rose-900 transition-colors"
+            style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 600, letterSpacing: "-0.03em" }}
+          >
             {d.title}
           </h3>
           <p className="font-[family-name:var(--font-hand)] text-xl text-muted truncate">
@@ -88,7 +137,12 @@ export default function Archive() {
             <p className="font-mono text-xs tracking-[0.3em] text-muted">GENESIS // ART_CASE</p>
           </BlurFade>
           <BlurFade delay={0.15}>
-            <h1 className="mt-2 text-5xl md:text-6xl font-serif">Дневник дней</h1>
+            <h1
+              className="mt-2 text-5xl md:text-6xl"
+              style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 600, letterSpacing: "-0.04em" }}
+            >
+              Дневник дней
+            </h1>
           </BlurFade>
           <BlurFade delay={0.25}>
             <p className="mt-3 max-w-md text-muted">

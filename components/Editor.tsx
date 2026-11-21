@@ -33,6 +33,9 @@ const BADGE_PRESETS = [
   "DAY OFF",
   "NIGHT OWL",
   "GENESIS",
+  "I want hug",
+  "Have a fun",
+  "I hate rain",
 ];
 
 export default function Editor({
@@ -457,11 +460,10 @@ export default function Editor({
 
           <button
             onClick={handleSave}
-            className={`rounded-full px-5 py-1.5 font-mono text-xs font-medium transition ${
-              savedTick
-                ? "bg-emerald-600 text-white"
-                : "bg-[var(--foreground)] text-[var(--background)] hover:opacity-90"
-            }`}
+            className={`rounded-full px-5 py-1.5 font-mono text-xs font-medium transition ${savedTick
+              ? "bg-emerald-600 text-white"
+              : "bg-[var(--foreground)] text-[var(--background)] hover:opacity-90"
+              }`}
           >
             {savedTick ? "✓ Сохранено!" : "💾 Сохранить"}
           </button>
@@ -487,18 +489,16 @@ export default function Editor({
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-mono text-xs font-medium transition ${
-              activeTab === tab.id
-                ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
-                : "border border-[var(--border)] bg-white/70 text-muted hover:text-[var(--foreground)] hover:bg-white"
-            }`}
+            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-mono text-xs font-medium transition ${activeTab === tab.id
+              ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
+              : "border border-[var(--border)] bg-white/70 text-muted hover:text-[var(--foreground)] hover:bg-white"
+              }`}
           >
             <span>{tab.label}</span>
             {typeof tab.count === "number" && (
               <span
-                className={`rounded-full px-1.5 py-0.2 text-[10px] ${
-                  activeTab === tab.id ? "bg-white/20 text-white" : "bg-stone-200 text-stone-700"
-                }`}
+                className={`rounded-full px-1.5 py-0.2 text-[10px] ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-stone-200 text-stone-700"
+                  }`}
               >
                 {tab.count}
               </span>
@@ -547,404 +547,433 @@ export default function Editor({
             </div>
           </div>
 
-      {/* Настройки выбранного элемента */}
-      {selectedItem ? (
-        <div className="space-y-4 rounded-lg border border-dashed border-rose-400 bg-rose-50/40 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-semibold uppercase text-rose-900">
-                {selectedItem.kind.toUpperCase()} (#{selectedItem.id.slice(-4)})
-              </span>
-              <span className="rounded-full bg-rose-200/70 px-2 py-0.5 font-mono text-[10px] text-rose-950 font-medium">
-                Слой {items.findIndex((i) => i.id === sel) + 1} из {items.length}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => moveZ("bottom")}
-                disabled={items.findIndex((i) => i.id === sel) === 0}
-                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
-                title="На самый задний план (вниз всех слоев)"
-              >
-                ⏬ Вниз
-              </button>
-              <button
-                type="button"
-                onClick={() => moveZ("down")}
-                disabled={items.findIndex((i) => i.id === sel) === 0}
-                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
-                title="Опустить на один слой ниже"
-              >
-                ⬇ Ниже
-              </button>
-              <button
-                type="button"
-                onClick={() => moveZ("up")}
-                disabled={items.findIndex((i) => i.id === sel) === items.length - 1}
-                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
-                title="Поднять на один слой выше"
-              >
-                ⬆ Выше
-              </button>
-              <button
-                type="button"
-                onClick={() => moveZ("top")}
-                disabled={items.findIndex((i) => i.id === sel) === items.length - 1}
-                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
-                title="На самый передний план (поверх всех)"
-              >
-                ⏫ Вверх
-              </button>
-              <button
-                type="button"
-                onClick={duplicateSel}
-                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 transition"
-                title="Дублировать элемент"
-              >
-                📋 Копия
-              </button>
-              <button
-                type="button"
-                onClick={removeSel}
-                className="rounded border border-red-300 bg-red-100 px-2.5 py-1 font-mono text-[11px] text-red-700 hover:bg-red-200 transition"
-                title="Удалить со сцены"
-              >
-                🗑 Удалить
-              </button>
+          {/* 🎨 Эффект на фото */}
+          <div>
+            <span className="block font-mono text-[11px] text-muted uppercase tracking-wider mb-2">
+              🎨 Эффект на фото:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: "auto",      label: "✨ Авто",        desc: "LLM-выбор живописи" },
+                { key: "none",      label: "📷 Чистое",      desc: "Без эффектов" },
+                { key: "film",      label: "🎞️ Плёнка",      desc: "Контраст + сепия" },
+                { key: "bw",        label: "⬛ Ч/Б",         desc: "Grayscale" },
+                { key: "warm",      label: "🌅 Тепло",       desc: "Тёплый тон" },
+                { key: "cool",      label: "🌊 Холод",       desc: "Прохладный тон" },
+                { key: "monet",     label: "🖌️ Монэ",        desc: "Масляные мазки" },
+                { key: "kandinsky", label: "🔷 Кандинский",  desc: "Геометрия" },
+                { key: "matisse",   label: "🫧 Матисс",      desc: "Пятна цвета" },
+                { key: "minimal",   label: "⬜ Минимал",     desc: "Минимализм" },
+              ] as const).map((ef) => (
+                <button
+                  key={ef.key}
+                  type="button"
+                  onClick={() => setDay((p) => p ? { ...p, style: { ...p.style, photoFilter: ef.key } } : p)}
+                  title={ef.desc}
+                  className={`rounded-lg px-3 py-1.5 font-mono text-xs transition ${
+                    (day.style.photoFilter ?? "auto") === ef.key
+                      ? "bg-[var(--foreground)] text-[var(--background)] font-medium shadow-sm"
+                      : "border border-[var(--border)] bg-white/70 text-muted hover:text-[var(--foreground)] hover:bg-white"
+                  }`}
+                >
+                  {ef.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Слайдеры размера и поворота */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <div className="flex justify-between font-mono text-xs text-muted mb-1">
-                <span>Размер (Scale)</span>
-                <span>{(selectedItem.s || 1).toFixed(2)}x</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2.5"
-                  step="0.05"
-                  value={selectedItem.s || 1}
-                  onChange={(e) => updateSel({ s: parseFloat(e.target.value) })}
-                  className="w-full accent-rose-600"
-                />
-                <button
-                  onClick={() => updateSel({ s: 1 })}
-                  className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-mono text-[10px]"
-                >
-                  1x
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between font-mono text-xs text-muted mb-1">
-                <span>Поворот (Rotate)</span>
-                <span>{Math.round(selectedItem.r)}°</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="-180"
-                  max="180"
-                  step="1"
-                  value={selectedItem.r || 0}
-                  onChange={(e) => updateSel({ r: parseInt(e.target.value) })}
-                  className="w-full accent-rose-600"
-                />
-                <button
-                  onClick={() => updateSel({ r: 0 })}
-                  className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-mono text-[10px]"
-                >
-                  0°
-                </button>
-                <button
-                  onClick={() => updateSel({ r: (selectedItem.r || 0) + 15 })}
-                  className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-mono text-[10px]"
-                >
-                  +15°
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Специфичные настройки: ВИНИЛ */}
-          {selectedItem.kind === "disc" && (
-            <div className="space-y-3 border-t border-rose-200/60 pt-3">
-              <div>
-                <span className="block font-mono text-xs text-muted mb-1.5">Материал винила:</span>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "black", label: "🖤 Чёрный обсидиан" },
-                    { key: "gold", label: "🟡 Золотой мастер" },
-                    { key: "ruby", label: "🔴 Рубиновый" },
-                    { key: "sapphire", label: "🔵 Кобальт" },
-                    { key: "amber", label: "🟠 Дымчатый янтарь" },
-                  ].map((s) => (
-                    <button
-                      key={s.key}
-                      onClick={() => updateSel({ variant: s.key })}
-                      className={`rounded-full px-3 py-1 font-mono text-xs transition ${
-                        (selectedItem.variant || "black") === s.key
-                          ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
-                          : "border border-[var(--border)] bg-white hover:bg-stone-50"
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
+          {/* Настройки выбранного элемента */}
+          {selectedItem ? (
+            <div className="space-y-4 rounded-lg border border-dashed border-rose-400 bg-rose-50/40 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-semibold uppercase text-rose-900">
+                    {selectedItem.kind.toUpperCase()} (#{selectedItem.id.slice(-4)})
+                  </span>
+                  <span className="rounded-full bg-rose-200/70 px-2 py-0.5 font-mono text-[10px] text-rose-950 font-medium">
+                    Слой {items.findIndex((i) => i.id === sel) + 1} из {items.length}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => moveZ("bottom")}
+                    disabled={items.findIndex((i) => i.id === sel) === 0}
+                    className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                    title="На самый задний план (вниз всех слоев)"
+                  >
+                    ⏬ Вниз
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveZ("down")}
+                    disabled={items.findIndex((i) => i.id === sel) === 0}
+                    className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                    title="Опустить на один слой ниже"
+                  >
+                    ⬇ Ниже
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveZ("up")}
+                    disabled={items.findIndex((i) => i.id === sel) === items.length - 1}
+                    className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                    title="Поднять на один слой выше"
+                  >
+                    ⬆ Выше
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveZ("top")}
+                    disabled={items.findIndex((i) => i.id === sel) === items.length - 1}
+                    className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                    title="На самый передний план (поверх всех)"
+                  >
+                    ⏫ Вверх
+                  </button>
+                  <button
+                    type="button"
+                    onClick={duplicateSel}
+                    className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 transition"
+                    title="Дублировать элемент"
+                  >
+                    📋 Копия
+                  </button>
+                  <button
+                    type="button"
+                    onClick={removeSel}
+                    className="rounded border border-red-300 bg-red-100 px-2.5 py-1 font-mono text-[11px] text-red-700 hover:bg-red-200 transition"
+                    title="Удалить со сцены"
+                  >
+                    🗑 Удалить
+                  </button>
                 </div>
               </div>
 
-              <div>
-                <span className="block font-mono text-xs text-muted mb-1.5">Центральный лейбл:</span>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "photo", label: "📷 Фото дня" },
-                    { key: "vintage", label: "📻 Ретро-лейбл" },
-                    { key: "palette", label: "🎨 Палитра дня" },
-                    { key: "minimal", label: "⬛ Минимал" },
-                  ].map((l) => (
-                    <button
-                      key={l.key}
-                      onClick={() => updateSel({ text: l.key })}
-                      className={`rounded-full px-3 py-1 font-mono text-xs transition ${
-                        (selectedItem.text || "photo") === l.key
-                          ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
-                          : "border border-[var(--border)] bg-white hover:bg-stone-50"
-                      }`}
-                    >
-                      {l.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Специфичные настройки: ПОГОДА */}
-          {selectedItem.kind === "weather" && (
-            <div className="space-y-3 border-t border-rose-200/60 pt-3">
-              <div>
-                <span className="block font-mono text-xs text-muted mb-1.5">Стиль виджета:</span>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { key: "card", label: "📄 Винтажная карточка" },
-                    { key: "glass", label: "🪟 Матовое стекло" },
-                    { key: "stamp", label: "📮 Почтовый штамп" },
-                  ].map((v) => (
-                    <button
-                      key={v.key}
-                      onClick={() => updateSel({ variant: v.key })}
-                      className={`rounded-full px-3 py-1 font-mono text-xs transition ${
-                        (selectedItem.variant || "card") === v.key
-                          ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
-                          : "border border-[var(--border)] bg-white hover:bg-stone-50"
-                      }`}
-                    >
-                      {v.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Специфичные настройки: КАРТА И ЛОКАЦИЯ */}
-          {(selectedItem.kind === "map" || selectedItem.kind === "place") && (
-            <div className="space-y-3 border-t border-rose-200/60 pt-3">
-              {selectedItem.kind === "map" && (
+              {/* Слайдеры размера и поворота */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <span className="block font-mono text-xs text-muted mb-1.5">Вид карты:</span>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { key: "tile", label: "🗺️ Мини-карта OSM" },
-                      { key: "ticket", label: "🎫 Посадочный билет" },
-                    ].map((v) => (
-                      <button
-                        key={v.key}
-                        onClick={() => updateSel({ variant: v.key })}
-                        className={`rounded-full px-3 py-1 font-mono text-xs transition ${
-                          (selectedItem.variant || "tile") === v.key
+                  <div className="flex justify-between font-mono text-xs text-muted mb-1">
+                    <span>Размер (Scale)</span>
+                    <span>{(selectedItem.s || 1).toFixed(2)}x</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="2.5"
+                      step="0.05"
+                      value={selectedItem.s || 1}
+                      onChange={(e) => updateSel({ s: parseFloat(e.target.value) })}
+                      className="w-full accent-rose-600"
+                    />
+                    <button
+                      onClick={() => updateSel({ s: 1 })}
+                      className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-mono text-[10px]"
+                    >
+                      1x
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between font-mono text-xs text-muted mb-1">
+                    <span>Поворот (Rotate)</span>
+                    <span>{Math.round(selectedItem.r)}°</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={selectedItem.r || 0}
+                      onChange={(e) => updateSel({ r: parseInt(e.target.value) })}
+                      className="w-full accent-rose-600"
+                    />
+                    <button
+                      onClick={() => updateSel({ r: 0 })}
+                      className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-mono text-[10px]"
+                    >
+                      0°
+                    </button>
+                    <button
+                      onClick={() => updateSel({ r: (selectedItem.r || 0) + 15 })}
+                      className="rounded border border-[var(--border)] bg-white px-1.5 py-0.5 font-mono text-[10px]"
+                    >
+                      +15°
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Специфичные настройки: ВИНИЛ */}
+              {selectedItem.kind === "disc" && (
+                <div className="space-y-3 border-t border-rose-200/60 pt-3">
+                  <div>
+                    <span className="block font-mono text-xs text-muted mb-1.5">Материал винила:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { key: "black", label: "🖤 Чёрный обсидиан" },
+                        { key: "gold", label: "🟡 Золотой мастер" },
+                        { key: "ruby", label: "🔴 Рубиновый" },
+                        { key: "sapphire", label: "🔵 Кобальт" },
+                        { key: "amber", label: "🟠 Дымчатый янтарь" },
+                      ].map((s) => (
+                        <button
+                          key={s.key}
+                          onClick={() => updateSel({ variant: s.key })}
+                          className={`rounded-full px-3 py-1 font-mono text-xs transition ${(selectedItem.variant || "black") === s.key
                             ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
                             : "border border-[var(--border)] bg-white hover:bg-stone-50"
-                        }`}
-                      >
-                        {v.label}
-                      </button>
-                    ))}
+                            }`}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block font-mono text-xs text-muted mb-1.5">Центральный лейбл:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { key: "photo", label: "📷 Фото дня" },
+                        { key: "vintage", label: "📻 Ретро-лейбл" },
+                        { key: "palette", label: "🎨 Палитра дня" },
+                        { key: "minimal", label: "⬛ Минимал" },
+                      ].map((l) => (
+                        <button
+                          key={l.key}
+                          onClick={() => updateSel({ text: l.key })}
+                          className={`rounded-full px-3 py-1 font-mono text-xs transition ${(selectedItem.text || "photo") === l.key
+                            ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
+                            : "border border-[var(--border)] bg-white hover:bg-stone-50"
+                            }`}
+                        >
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div>
-                <label className="block font-mono text-xs text-muted mb-1">
-                  Название места (отображается на элементе):
-                </label>
-                <input
-                  type="text"
-                  value={selectedItem.text ?? day.geo?.place ?? ""}
-                  onChange={(e) => updateSel({ text: e.target.value })}
-                  placeholder="Например: Любимая набережная, Сочи"
-                  className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-rose-500"
-                />
-              </div>
+              {/* Специфичные настройки: ПОГОДА */}
+              {selectedItem.kind === "weather" && (
+                <div className="space-y-3 border-t border-rose-200/60 pt-3">
+                  <div>
+                    <span className="block font-mono text-xs text-muted mb-1.5">Стиль виджета:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { key: "card", label: "📄 Винтажная карточка" },
+                        { key: "glass", label: "🪟 Матовое стекло" },
+                        { key: "stamp", label: "📮 Почтовый штамп" },
+                      ].map((v) => (
+                        <button
+                          key={v.key}
+                          onClick={() => updateSel({ variant: v.key })}
+                          className={`rounded-full px-3 py-1 font-mono text-xs transition ${(selectedItem.variant || "card") === v.key
+                            ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
+                            : "border border-[var(--border)] bg-white hover:bg-stone-50"
+                            }`}
+                        >
+                          {v.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Специфичные настройки: КАРТА И ЛОКАЦИЯ */}
+              {(selectedItem.kind === "map" || selectedItem.kind === "place") && (
+                <div className="space-y-3 border-t border-rose-200/60 pt-3">
+                  {selectedItem.kind === "map" && (
+                    <div>
+                      <span className="block font-mono text-xs text-muted mb-1.5">Вид карты:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { key: "tile", label: "🗺️ Мини-карта OSM" },
+                          { key: "ticket", label: "🎫 Посадочный билет" },
+                        ].map((v) => (
+                          <button
+                            key={v.key}
+                            onClick={() => updateSel({ variant: v.key })}
+                            className={`rounded-full px-3 py-1 font-mono text-xs transition ${(selectedItem.variant || "tile") === v.key
+                              ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
+                              : "border border-[var(--border)] bg-white hover:bg-stone-50"
+                              }`}
+                          >
+                            {v.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block font-mono text-xs text-muted mb-1">
+                      Название места (отображается на элементе):
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedItem.text ?? day.geo?.place ?? ""}
+                      onChange={(e) => updateSel({ text: e.target.value })}
+                      placeholder="Например: Любимая набережная, Сочи"
+                      className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-rose-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Специфичные настройки: ЗАМЕТКА */}
+              {selectedItem.kind === "note" && (
+                <div className="space-y-3 border-t border-rose-200/60 pt-3">
+                  <div>
+                    <span className="block font-mono text-xs text-muted mb-1.5">Цвет бумаги:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(NOTE_COLORS).map(([k, c]) => (
+                        <button
+                          key={k}
+                          onClick={() => updateSel({ variant: k })}
+                          className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs"
+                          style={{
+                            background: c.bg,
+                            color: c.fg,
+                            borderColor: (selectedItem.variant || "yellow") === k ? "#e11d48" : "transparent",
+                            fontWeight: (selectedItem.variant || "yellow") === k ? 700 : 400,
+                          }}
+                        >
+                          <span className="h-2 w-2 rounded-full border border-black/20" style={{ background: c.fg }} />
+                          <span>{k}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block font-mono text-xs text-muted mb-1.5">Шрифт:</span>
+                    <div className="flex gap-2">
+                      {[
+                        { key: "hand", label: "✍️ Рукописный" },
+                        { key: "mono", label: "⌨️ Машинка" },
+                        { key: "serif", label: "📖 Книжный" },
+                      ].map((f) => (
+                        <button
+                          key={f.key}
+                          onClick={() => updateSel({ font: f.key })}
+                          className={`rounded-full px-3 py-1 font-mono text-xs transition ${(selectedItem.font || "hand") === f.key
+                            ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
+                            : "border border-[var(--border)] bg-white hover:bg-stone-50"
+                            }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-mono text-xs text-muted mb-1">Текст заметки:</label>
+                    <textarea
+                      rows={3}
+                      value={selectedItem.text ?? ""}
+                      onChange={(e) => updateSel({ text: e.target.value })}
+                      placeholder="Напишите мысль или цитату…"
+                      className="w-full rounded-md border border-[var(--border)] bg-white p-2 font-mono text-xs outline-none focus:border-rose-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Специфичные настройки: СТИКЕР */}
+              {selectedItem.kind === "sticker" && (
+                <div className="space-y-3 border-t border-rose-200/60 pt-3">
+                  <div>
+                    <span className="block font-mono text-xs text-muted mb-1.5">Выбрать стикер или эмодзи:</span>
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1 bg-white rounded border border-[var(--border)]">
+                      {STICKER_PRESETS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => updateSel({ text: emoji })}
+                          className="h-8 w-8 text-lg rounded hover:bg-rose-100 flex items-center justify-center transition"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block font-mono text-xs text-muted mb-1.5">Или текстовый бейдж:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {BADGE_PRESETS.map((b) => (
+                        <button
+                          key={b}
+                          onClick={() => updateSel({ text: b })}
+                          className="rounded border border-[var(--border)] bg-white px-2.5 py-1 font-mono text-[11px] hover:border-black"
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-mono text-xs text-muted mb-1">Свой текст / символ:</label>
+                    <input
+                      type="text"
+                      value={selectedItem.text ?? ""}
+                      onChange={(e) => updateSel({ text: e.target.value })}
+                      className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-1.5 font-mono text-xs outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Специфичные настройки: ШТАМП */}
+              {selectedItem.kind === "stamp" && (
+                <div className="space-y-3 border-t border-rose-200/60 pt-3">
+                  <div>
+                    <span className="block font-mono text-xs text-muted mb-1.5">Форма печати:</span>
+                    <div className="flex gap-2">
+                      {[
+                        { key: "round", label: "⭕ Круглый почтовый" },
+                        { key: "rect", label: "⏹ Прямоугольная" },
+                      ].map((v) => (
+                        <button
+                          key={v.key}
+                          onClick={() => updateSel({ variant: v.key })}
+                          className={`rounded-full px-3 py-1 font-mono text-xs transition ${(selectedItem.variant || "round") === v.key
+                            ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
+                            : "border border-[var(--border)] bg-white hover:bg-stone-50"
+                            }`}
+                        >
+                          {v.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-mono text-xs text-muted mb-1">Текст печати:</label>
+                    <input
+                      type="text"
+                      value={selectedItem.text ?? ""}
+                      onChange={(e) => updateSel({ text: e.target.value })}
+                      placeholder="ОДОБРЕНО, СОХРАНЕНО, ARCHIVED..."
+                      className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-1.5 font-mono text-xs outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-muted">
+              Кликните по любому элементу на постере, чтобы изменить его стиль, размер, поворот или текст.
             </div>
           )}
-
-          {/* Специфичные настройки: ЗАМЕТКА */}
-          {selectedItem.kind === "note" && (
-            <div className="space-y-3 border-t border-rose-200/60 pt-3">
-              <div>
-                <span className="block font-mono text-xs text-muted mb-1.5">Цвет бумаги:</span>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(NOTE_COLORS).map(([k, c]) => (
-                    <button
-                      key={k}
-                      onClick={() => updateSel({ variant: k })}
-                      className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs"
-                      style={{
-                        background: c.bg,
-                        color: c.fg,
-                        borderColor: (selectedItem.variant || "yellow") === k ? "#e11d48" : "transparent",
-                        fontWeight: (selectedItem.variant || "yellow") === k ? 700 : 400,
-                      }}
-                    >
-                      <span className="h-2 w-2 rounded-full border border-black/20" style={{ background: c.fg }} />
-                      <span>{k}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <span className="block font-mono text-xs text-muted mb-1.5">Шрифт:</span>
-                <div className="flex gap-2">
-                  {[
-                    { key: "hand", label: "✍️ Рукописный" },
-                    { key: "mono", label: "⌨️ Машинка" },
-                    { key: "serif", label: "📖 Книжный" },
-                  ].map((f) => (
-                    <button
-                      key={f.key}
-                      onClick={() => updateSel({ font: f.key })}
-                      className={`rounded-full px-3 py-1 font-mono text-xs transition ${
-                        (selectedItem.font || "hand") === f.key
-                          ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
-                          : "border border-[var(--border)] bg-white hover:bg-stone-50"
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-mono text-xs text-muted mb-1">Текст заметки:</label>
-                <textarea
-                  rows={3}
-                  value={selectedItem.text ?? ""}
-                  onChange={(e) => updateSel({ text: e.target.value })}
-                  placeholder="Напишите мысль или цитату…"
-                  className="w-full rounded-md border border-[var(--border)] bg-white p-2 font-mono text-xs outline-none focus:border-rose-500"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Специфичные настройки: СТИКЕР */}
-          {selectedItem.kind === "sticker" && (
-            <div className="space-y-3 border-t border-rose-200/60 pt-3">
-              <div>
-                <span className="block font-mono text-xs text-muted mb-1.5">Выбрать стикер или эмодзи:</span>
-                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1 bg-white rounded border border-[var(--border)]">
-                  {STICKER_PRESETS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => updateSel({ text: emoji })}
-                      className="h-8 w-8 text-lg rounded hover:bg-rose-100 flex items-center justify-center transition"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <span className="block font-mono text-xs text-muted mb-1.5">Или текстовый бейдж:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {BADGE_PRESETS.map((b) => (
-                    <button
-                      key={b}
-                      onClick={() => updateSel({ text: b })}
-                      className="rounded border border-[var(--border)] bg-white px-2.5 py-1 font-mono text-[11px] hover:border-black"
-                    >
-                      {b}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-mono text-xs text-muted mb-1">Свой текст / символ:</label>
-                <input
-                  type="text"
-                  value={selectedItem.text ?? ""}
-                  onChange={(e) => updateSel({ text: e.target.value })}
-                  className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-1.5 font-mono text-xs outline-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Специфичные настройки: ШТАМП */}
-          {selectedItem.kind === "stamp" && (
-            <div className="space-y-3 border-t border-rose-200/60 pt-3">
-              <div>
-                <span className="block font-mono text-xs text-muted mb-1.5">Форма печати:</span>
-                <div className="flex gap-2">
-                  {[
-                    { key: "round", label: "⭕ Круглый почтовый" },
-                    { key: "rect", label: "⏹ Прямоугольная" },
-                  ].map((v) => (
-                    <button
-                      key={v.key}
-                      onClick={() => updateSel({ variant: v.key })}
-                      className={`rounded-full px-3 py-1 font-mono text-xs transition ${
-                        (selectedItem.variant || "round") === v.key
-                          ? "bg-[var(--foreground)] text-[var(--background)] font-medium"
-                          : "border border-[var(--border)] bg-white hover:bg-stone-50"
-                      }`}
-                    >
-                      {v.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-mono text-xs text-muted mb-1">Текст печати:</label>
-                <input
-                  type="text"
-                  value={selectedItem.text ?? ""}
-                  onChange={(e) => updateSel({ text: e.target.value })}
-                  placeholder="ОДОБРЕНО, СОХРАНЕНО, ARCHIVED..."
-                  className="w-full rounded-md border border-[var(--border)] bg-white px-3 py-1.5 font-mono text-xs outline-none"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-muted">
-          Кликните по любому элементу на постере, чтобы изменить его стиль, размер, поворот или текст.
-        </div>
-      )}
         </>
       )}
 
@@ -975,11 +1004,11 @@ export default function Editor({
                     setDay((p) =>
                       p
                         ? {
-                            ...p,
-                            geo: p.geo
-                              ? { ...p.geo, place: e.target.value }
-                              : { lat: 0, lon: 0, place: e.target.value },
-                          }
+                          ...p,
+                          geo: p.geo
+                            ? { ...p.geo, place: e.target.value }
+                            : { lat: 0, lon: 0, place: e.target.value },
+                        }
                         : p
                     )
                   }

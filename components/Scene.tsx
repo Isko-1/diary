@@ -36,12 +36,22 @@ type Slot = { img: HTMLImageElement; sample: Uint8ClampedArray; painted: HTMLCan
 function loadImg(src: string) {
   return new Promise<HTMLImageElement>((res, rej) => {
     const i = new Image();
-    i.crossOrigin = "anonymous";
+    // НЕ ставим crossOrigin для data: URL — это ломает canvas на iOS/Safari
+    if (!src.startsWith("data:")) i.crossOrigin = "anonymous";
     i.onload = () => res(i);
     i.onerror = rej;
     i.src = src;
   });
 }
+
+/** CSS filter-строки для режимов photoFilter (применяются через ctx.filter) */
+const CSS_FILTERS: Record<string, string> = {
+  none:   "none",
+  film:   "contrast(1.1) saturate(0.8) sepia(0.18)",
+  bw:     "grayscale(1) contrast(1.08)",
+  warm:   "sepia(0.25) saturate(1.3) brightness(1.05)",
+  cool:   "hue-rotate(15deg) saturate(0.85) brightness(0.98)",
+};
 
 export default function Scene({ day }: { day: DayPassport }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -55,19 +65,27 @@ export default function Scene({ day }: { day: DayPassport }) {
     const palRgb = pal.map(rgbOf);
     const W8 = day.style.weights;
     const top = dominant(W8);
+    // Определяем активный фильтр: "auto" или undefined = LLM-выбор (живопись), иначе — выбор пользователя
+    const photoFilter = day.style.photoFilter ?? "auto";
+    const isCssFilter = photoFilter !== "auto" && photoFilter in CSS_FILTERS;
+    const forcedTechnique = (!isCssFilter && photoFilter !== "auto") ? (photoFilter as Technique) : null;
 
     (async () => {
       try {
         await Promise.all(['500 56px Fraunces', '60px Caveat', '500 28px "JetBrains Mono"'].map((f) => document.fonts.load(f)));
       } catch {}
-      const imgs = await Promise.all(day.photos.map(loadImg));
+      const imgResults = await Promise.allSettled(day.photos.map(loadImg));
       if (dead) return;
+      const imgs = imgResults
+        .filter((r): r is PromiseFulfilledResult<HTMLImageElement> => r.status === "fulfilled")
+        .map((r) => r.value);
+      const hasPhotos = imgs.length > 0;
 
       const slots: Slot[] = imgs.map((img, i) => {
         const sc = document.createElement("canvas");
         sc.width = SW; sc.height = SH;
         const sx = sc.getContext("2d", { willReadFrequently: true })!;
-        drawCover(sx, img, 0, 0, SW, SH);
+        try { drawCover(sx, img, 0, 0, SW, SH); } catch {}
         const painted = document.createElement("canvas");
         painted.width = F.w; painted.height = F.h;
         return { img, sample: sx.getImageData(0, 0, SW, SH).data, painted, drawn: 0, r: rng(day.id + "m" + i) };
@@ -217,17 +235,52 @@ export default function Scene({ day }: { day: DayPassport }) {
 
       function scene(i: number, alpha: number, t: number, local: number) {
         const s = slots[i];
+        if (!s) return;
         ctx.save();
         ctx.beginPath(); ctx.rect(F.x, F.y, F.w, F.h); ctx.clip();
         ctx.globalAlpha = alpha;
-        try { ctx.filter = `saturate(${0.9 + 0.3 * day.mood.valence})`; } catch {}
-        drawCover(ctx, s.img, F.x, F.y, F.w, F.h);
-        ctx.filter = "none";
-        (Object.keys(W8) as Technique[]).forEach((k) => {
-          if (W8[k] < 0.15) return;
-          layers[k](Math.min(0.65, W8[k] * 1.1) * alpha, t, s, local);
-        });
-        fx(alpha);
+
+        if (isCssFilter) {
+          // Режим чистого/CSS-фильтра: только фото с фильтром, без живописи
+          try { ctx.filter = CSS_FILTERS[photoFilter] ?? "none"; } catch {}
+          try { drawCover(ctx, s.img, F.x, F.y, F.w, F.h); } catch {}
+          ctx.filter = "none";
+          if (photoFilter === "film") {
+            ctx.globalCompositeOperation = "overlay";
+            ctx.globalAlpha = alpha * 0.08;
+            ctx.fillStyle = noisePat as unknown as string;
+            ctx.fillRect(F.x, F.y, F.w, F.h);
+            ctx.globalCompositeOperation = "source-over";
+          }
+        } else if (forcedTechnique) {
+          // Режим конкретной арт-техники: фото + только эта техника
+          try { ctx.filter = `saturate(${0.9 + 0.3 * day.mood.valence})`; } catch {}
+          try { drawCover(ctx, s.img, F.x, F.y, F.w, F.h); } catch {}
+          ctx.filter = "none";
+          layers[forcedTechnique](Math.min(0.65, 0.7) * alpha, t, s, local);
+          fx(alpha);
+        } else {
+          // Режим auto: фото + все техники с весами LLM
+          try { ctx.filter = `saturate(${0.9 + 0.3 * day.mood.valence})`; } catch {}
+          try { drawCover(ctx, s.img, F.x, F.y, F.w, F.h); } catch {}
+          ctx.filter = "none";
+          (Object.keys(W8) as Technique[]).forEach((k) => {
+            if (W8[k] < 0.15) return;
+            layers[k](Math.min(0.65, W8[k] * 1.1) * alpha, t, s, local);
+          });
+          fx(alpha);
+        }
+        ctx.restore();
+      }
+
+      function sceneFallback(alpha: number) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const g = ctx.createLinearGradient(F.x, F.y, F.x + F.w, F.y + F.h);
+        g.addColorStop(0, pal[0] ?? "#b0a090");
+        g.addColorStop(1, pal[1] ?? "#8a7a6a");
+        ctx.fillStyle = g;
+        ctx.fillRect(F.x, F.y, F.w, F.h);
         ctx.restore();
       }
 
@@ -252,10 +305,14 @@ export default function Scene({ day }: { day: DayPassport }) {
         clock = now / 1000;
         ctx.globalAlpha = 1; ctx.fillStyle = th.bg; ctx.fillRect(0, 0, W, H);
 
-        const n = slots.length, seg = LOOP / n, idx = Math.floor(t / seg) % n, local = (t % seg) / seg;
-        const nxt = (idx + 1) % n, fade = local > 0.9 && n > 1 ? (local - 0.9) / 0.1 : 0;
-        scene(idx, 1, t, local);
-        if (fade > 0) scene(nxt, fade, t, 0);
+        if (hasPhotos) {
+          const n = slots.length, seg = LOOP / n, idx = Math.floor(t / seg) % n, local = (t % seg) / seg;
+          const nxt = (idx + 1) % n, fade = local > 0.9 && n > 1 ? (local - 0.9) / 0.1 : 0;
+          scene(idx, 1, t, local);
+          if (fade > 0) scene(nxt, fade, t, 0);
+        } else {
+          sceneFallback(1);
+        }
 
         // --- постоянные элементы ---
         ctx.globalAlpha = 0.55; ctx.strokeStyle = th.fg; ctx.lineWidth = 1.5; ctx.strokeRect(F.x, F.y, F.w, F.h);

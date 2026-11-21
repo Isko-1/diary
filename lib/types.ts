@@ -57,6 +57,8 @@ export type SceneItem = {
   zIndex?: number;
 };
 
+export type PhotoFilter = "auto" | "none" | "film" | "bw" | "warm" | "cool" | "monet" | "kandinsky" | "matisse" | "minimal";
+
 export type DayPassport = {
   id: string;
   date: string; // YYYY-MM-DD
@@ -78,6 +80,7 @@ export type DayPassport = {
       density: number;
       palette: string[];
     };
+    photoFilter?: PhotoFilter; // Эффект на фото: auto = выбор LLM, none = чистое фото
   };
   why: string[];
   weather?: Weather;
