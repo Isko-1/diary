@@ -80,7 +80,10 @@ export default function Editor({
   // Удаление выбранного
   function removeSel() {
     if (!sel) return;
-    setItems((prev) => prev.filter((i) => i.id !== sel));
+    setItems((prev) => {
+      const next = prev.filter((i) => i.id !== sel);
+      return next.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
+    });
     setSel(null);
   }
 
@@ -94,22 +97,32 @@ export default function Editor({
       x: Math.min(90, selectedItem.x + 5),
       y: Math.min(90, selectedItem.y + 5),
     };
-    setItems((prev) => [...prev, clone]);
+    setItems((prev) => {
+      const next = [...prev, clone];
+      return next.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
+    });
     setSel(nextId);
   }
 
-  // Перемещение слоя выше / ниже
-  function moveZ(dir: "up" | "down") {
+  // Перемещение слоя: выше, ниже, в самый верх (передний план), в самый низ (задний план)
+  function moveZ(dir: "up" | "down" | "top" | "bottom") {
     if (!sel) return;
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.id === sel);
       if (idx === -1) return prev;
       const copy = [...prev];
-      const target = dir === "up" ? idx + 1 : idx - 1;
-      if (target < 0 || target >= copy.length) return prev;
+      let target = idx;
+      if (dir === "up") target = Math.min(copy.length - 1, idx + 1);
+      else if (dir === "down") target = Math.max(0, idx - 1);
+      else if (dir === "top") target = copy.length - 1;
+      else if (dir === "bottom") target = 0;
+      if (target === idx) return prev;
+
       const [item] = copy.splice(idx, 1);
       copy.splice(target, 0, item);
-      return copy;
+
+      // Синхронизируем явный zIndex у всех элементов
+      return copy.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
     });
   }
 
@@ -201,7 +214,10 @@ export default function Editor({
         return;
     }
 
-    setItems((prev) => [...prev, newItem]);
+    setItems((prev) => {
+      const next = [...prev, newItem];
+      return next.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
+    });
     setSel(id);
   }
 
@@ -308,7 +324,7 @@ export default function Editor({
       if (geo && !hasM) {
         next.push({ id: `map-${Date.now()}`, kind: "map", x: 78, y: 26, s: 1.05, r: 3, variant: "tile" });
       }
-      return next;
+      return next.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
     });
   }
 
@@ -397,34 +413,63 @@ export default function Editor({
       {selectedItem ? (
         <div className="space-y-4 rounded-lg border border-dashed border-rose-400 bg-rose-50/40 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="font-mono text-xs font-semibold uppercase text-rose-900">
-              Выбран: {selectedItem.kind.toUpperCase()} (#{selectedItem.id.slice(-4)})
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-semibold uppercase text-rose-900">
+                {selectedItem.kind.toUpperCase()} (#{selectedItem.id.slice(-4)})
+              </span>
+              <span className="rounded-full bg-rose-200/70 px-2 py-0.5 font-mono text-[10px] text-rose-950 font-medium">
+                Слой {items.findIndex((i) => i.id === sel) + 1} из {items.length}
+              </span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
-                onClick={() => moveZ("up")}
-                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50"
-                title="На передний план"
+                type="button"
+                onClick={() => moveZ("bottom")}
+                disabled={items.findIndex((i) => i.id === sel) === 0}
+                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                title="На самый задний план (вниз всех слоев)"
               >
-                ⬆ Выше
+                ⏬ Вниз
               </button>
               <button
+                type="button"
                 onClick={() => moveZ("down")}
-                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50"
-                title="На задний план"
+                disabled={items.findIndex((i) => i.id === sel) === 0}
+                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                title="Опустить на один слой ниже"
               >
                 ⬇ Ниже
               </button>
               <button
+                type="button"
+                onClick={() => moveZ("up")}
+                disabled={items.findIndex((i) => i.id === sel) === items.length - 1}
+                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                title="Поднять на один слой выше"
+              >
+                ⬆ Выше
+              </button>
+              <button
+                type="button"
+                onClick={() => moveZ("top")}
+                disabled={items.findIndex((i) => i.id === sel) === items.length - 1}
+                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 disabled:opacity-35 disabled:cursor-not-allowed transition"
+                title="На самый передний план (поверх всех)"
+              >
+                ⏫ Вверх
+              </button>
+              <button
+                type="button"
                 onClick={duplicateSel}
-                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50"
+                className="rounded border border-[var(--border)] bg-white px-2 py-1 font-mono text-[11px] hover:bg-stone-50 transition"
                 title="Дублировать элемент"
               >
                 📋 Копия
               </button>
               <button
+                type="button"
                 onClick={removeSel}
-                className="rounded border border-red-300 bg-red-100 px-2.5 py-1 font-mono text-[11px] text-red-700 hover:bg-red-200"
+                className="rounded border border-red-300 bg-red-100 px-2.5 py-1 font-mono text-[11px] text-red-700 hover:bg-red-200 transition"
                 title="Удалить со сцены"
               >
                 🗑 Удалить

@@ -980,10 +980,10 @@ export default function Overlay({
         prev.map((i) =>
           i.id === it.id
             ? {
-                ...i,
-                x: cl(sx + ((m.clientX - ox) / r.width) * 100),
-                y: cl(sy + ((m.clientY - oy) / r.height) * 100),
-              }
+              ...i,
+              x: cl(sx + ((m.clientX - ox) / r.width) * 100),
+              y: cl(sy + ((m.clientY - oy) / r.height) * 100),
+            }
             : i,
         ),
       );
@@ -1012,7 +1012,7 @@ export default function Overlay({
       {items.map((it, idx) => {
         const baseW = it.size || WIDTH[it.kind] || 28;
         const width = baseW * (it.s || 1);
-        const zIndex = it.zIndex ?? (it.id === sel ? 50 : idx + 10);
+        const zIndex = it.zIndex ?? (idx + 1) * 10;
 
         return (
           <div
@@ -1034,8 +1034,8 @@ export default function Overlay({
                 ? noPreview
                   ? "превью песни недоступно"
                   : playing
-                  ? "нажмите, чтобы выключить музыку"
-                  : "нажмите, чтобы включить музыку"
+                    ? "нажмите, чтобы выключить музыку"
+                    : "нажмите, чтобы включить музыку"
                 : undefined
             }
             style={{

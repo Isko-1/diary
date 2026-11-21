@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { defaultItems } from "@/components/Overlay";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { fetchWeather, geocode, getGeo, reverse, GLYPH } from "@/lib/env";
@@ -25,8 +25,60 @@ export default function NewDay() {
   const router = useRouter();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<{ file: File; url: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [songs, setSongs] = useState<string[]>([""]);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+
+  useEffect(() => {
+    const list = files.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+    }));
+    setPreviews(list);
+
+    return () => {
+      list.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [files]);
+
+  function appendFiles(newFileList: FileList | File[]) {
+    const incoming = Array.from(newFileList).filter((f) => f.type.startsWith("image/"));
+    if (!incoming.length) return;
+    setFiles((prev) => {
+      const unique = incoming.filter(
+        (f) => !prev.some((p) => p.name === f.name && p.size === f.size && p.lastModified === f.lastModified)
+      );
+      return [...prev, ...unique];
+    });
+  }
+
+  function removePhoto(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function makeCover(idx: number) {
+    if (idx === 0) return;
+    setFiles((prev) => {
+      const copy = [...prev];
+      const [item] = copy.splice(idx, 1);
+      copy.unshift(item);
+      return copy;
+    });
+  }
+
+  function movePhoto(idx: number, dir: -1 | 1) {
+    setFiles((prev) => {
+      const target = idx + dir;
+      if (target < 0 || target >= prev.length) return prev;
+      const copy = [...prev];
+      const temp = copy[idx];
+      copy[idx] = copy[target];
+      copy[target] = temp;
+      return copy;
+    });
+  }
 
   function addSongField() {
     setSongs((prev) => [...prev, ""]);
@@ -254,16 +306,203 @@ export default function NewDay() {
         </BlurFade>
 
         <BlurFade delay={0.15}>
-          <label className="block font-mono text-xs text-muted">
-            ФОТО (1 и больше)
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="font-mono text-xs text-muted uppercase tracking-wider font-semibold">
+                📷 ФОТОГРАФИИ ДНЯ {files.length > 0 && `(${files.length})`}
+              </label>
+              {files.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[11px] text-muted hidden sm:inline">
+                    ★ Первое фото станет центром винила и обложкой дня
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFiles([])}
+                    className="font-mono text-xs text-rose-600 hover:underline"
+                  >
+                    Очистить все
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Скрытый input с поддержкой множественного выбора */}
             <input
-              className={field + " mt-2"}
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               multiple
-              onChange={(e) => setFiles([...(e.target.files ?? [])])}
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  appendFiles(e.target.files);
+                  e.target.value = "";
+                }
+              }}
             />
-          </label>
+
+            {files.length === 0 ? (
+              /* Зона Drag & Drop для первого добавления */
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files) appendFiles(e.dataTransfer.files);
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center cursor-pointer transition ${
+                  isDragging
+                    ? "border-rose-500 bg-rose-50/70 scale-[1.01]"
+                    : "border-[var(--border)] bg-white/40 hover:border-[var(--foreground)] hover:bg-white/70"
+                }`}
+              >
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-2xl text-rose-600 shadow-sm">
+                  📸
+                </div>
+                <div>
+                  <div className="font-medium text-stone-900 text-sm sm:text-base">
+                    Перетащите фотографии сюда или нажмите для выбора
+                  </div>
+                  <div className="mt-1 font-mono text-xs text-muted">
+                    Можно выбрать несколько файлов сразу или добавлять по одному
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="mt-1 rounded-full border border-[var(--border)] bg-white px-5 py-2 font-mono text-xs font-medium shadow-sm hover:bg-stone-50"
+                >
+                  Выбрать фото на устройстве
+                </button>
+              </div>
+            ) : (
+              /* Галерея загруженных фотографий с возможностью добавления новых */
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {previews.map((item, idx) => (
+                    <div
+                      key={item.url}
+                      className="group relative aspect-square overflow-hidden rounded-xl border border-[var(--border)] bg-stone-100 shadow-sm"
+                    >
+                      {/* Изображение */}
+                      <img
+                        src={item.url}
+                        alt={`Фото ${idx + 1}`}
+                        className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
+                      />
+
+                      {/* Тёмный градиент для кнопок при наведении */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                      {/* Метка обложки или номер фото */}
+                      {idx === 0 ? (
+                        <div className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-amber-500/95 px-2 py-0.5 font-mono text-[10px] font-bold text-white shadow backdrop-blur">
+                          <span>⭐</span>
+                          <span>ОБЛОЖКА</span>
+                        </div>
+                      ) : (
+                        <div className="absolute top-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-white backdrop-blur">
+                          #{idx + 1}
+                        </div>
+                      )}
+
+                      {/* Кнопка удаления */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removePhoto(idx);
+                        }}
+                        className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-rose-600 transition shadow"
+                        title="Удалить это фото"
+                      >
+                        ✕
+                      </button>
+
+                      {/* Действия внизу карточки */}
+                      <div className="absolute bottom-2 inset-x-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1">
+                          {idx > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                movePhoto(idx, -1);
+                              }}
+                              className="flex h-6 w-6 items-center justify-center rounded bg-black/70 text-xs text-white hover:bg-black"
+                              title="Переместить левее"
+                            >
+                              ◀
+                            </button>
+                          )}
+                          {idx < previews.length - 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                movePhoto(idx, 1);
+                              }}
+                              className="flex h-6 w-6 items-center justify-center rounded bg-black/70 text-xs text-white hover:bg-black"
+                              title="Переместить правее"
+                            >
+                              ▶
+                            </button>
+                          )}
+                        </div>
+
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              makeCover(idx);
+                            }}
+                            className="rounded bg-amber-500/90 px-2 py-1 font-mono text-[10px] font-medium text-white hover:bg-amber-600 shadow"
+                            title="Сделать главной обложкой"
+                          >
+                            Обложка
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Кнопка добавления ещё фото в сетке */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      if (e.dataTransfer.files) appendFiles(e.dataTransfer.files);
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-3 text-center cursor-pointer transition ${
+                      isDragging
+                        ? "border-rose-500 bg-rose-50/70"
+                        : "border-[var(--border)] bg-white/40 hover:border-[var(--foreground)] hover:bg-white/80"
+                    }`}
+                  >
+                    <span className="text-2xl text-muted">➕</span>
+                    <span className="font-mono text-xs font-medium text-stone-700">Добавить ещё</span>
+                    <span className="font-mono text-[10px] text-muted">или перетащите</span>
+                  </div>
+                </div>
+
+                <p className="font-mono text-[11px] text-muted">
+                  Вы можете менять порядок фото стрелками или назначить любое фото главной обложкой карточки и винила.
+                </p>
+              </div>
+            )}
+          </div>
         </BlurFade>
 
         <BlurFade delay={0.2}>
