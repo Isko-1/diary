@@ -57,7 +57,7 @@ export function defaultItems(day: DayPassport): SceneItem[] {
       y: 13,
       s: 0.75,
       r: 2,
-      variant: "stamp",
+      variant: "card",
       zIndex: 30,
     });
   }

@@ -530,7 +530,6 @@ export default function Editor({
                 { kind: "note", label: "📝 Заметка", desc: "Стикер с текстом" },
                 { kind: "sticker", label: "✨ Стикер", desc: "Эмодзи или бейдж" },
                 { kind: "tape", label: "🎗️ Скотч", desc: "Декоративная лента" },
-                { kind: "stamp", label: "💮 Штамп", desc: "Почтовая печать" },
                 { kind: "place", label: "🏷️ Место", desc: "Бейдж локации" },
                 { kind: "wave", label: "📊 Волна", desc: "Аудио-визуализатор" },
                 { kind: "cassette", label: "📼 Кассета", desc: "Ретро-кассета" },
