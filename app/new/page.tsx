@@ -30,6 +30,12 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
+/** Сегодняшняя дата по локальному времени (toISOString даёт UTC и поздним вечером в Казахстане ошибается на сутки). */
+const localToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 function NewDayForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,13 +48,13 @@ function NewDayForm() {
   const [date, setDate] = useState("");
 
   useEffect(() => {
+    const today = localToday();
     const qDate = searchParams.get("date");
-    if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) {
+    // Будущие даты (из ссылки или вручную) не принимаем: день должен быть прожит
+    if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate) && qDate <= today) {
       setDate(qDate);
     } else {
-      const d = new Date();
-      const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      setDate(localDate);
+      setDate(today);
     }
   }, [searchParams]);
 
@@ -141,7 +147,9 @@ function NewDayForm() {
   const [err, setErr] = useState("");
 
   // При смене даты пользователем: если геолокация уже есть, автоматически перезапрашиваем погоду за новую дату
-  async function handleDateChange(newDate: string) {
+  async function handleDateChange(rawDate: string) {
+    const today = localToday();
+    const newDate = !rawDate ? date : rawDate > today ? today : rawDate;
     setDate(newDate);
     if (geo) {
       setGeoLoading(true);
@@ -247,6 +255,9 @@ function NewDayForm() {
       return setErr("Нужны текст, хотя бы одно фото и как минимум одна песня.");
     }
 
+    if (date > localToday()) {
+      return setErr("Нельзя записать день, который ещё не наступил.");
+    }
     try {
       setBusy("Подбираю цвета и палитру…");
       const photos =
@@ -328,6 +339,7 @@ function NewDayForm() {
               <input
                 className={field + " mt-2 font-mono text-sm"}
                 type="date"
+                max={localToday()}
                 value={date}
                 onChange={(e) => handleDateChange(e.target.value)}
               />

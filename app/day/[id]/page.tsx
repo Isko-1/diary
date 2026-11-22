@@ -248,7 +248,7 @@ export default function DayPage() {
               } disabled:opacity-40 min-w-0`}
               title={noPreview ? "Превью недоступно" : playing ? "Пауза" : "Играть"}
             >
-              <span className={playing ? "animate-spin text-sm" : "text-sm"}>{playing ? "💿" : "▶"}</span>
+              <span className="text-sm">{playing ? "❚❚" : "▶"}</span>
               <span className="truncate max-w-[110px] sm:max-w-[150px]">
                 {noPreview ? "без звука" : activeSong?.title || "песня"}
               </span>
@@ -478,7 +478,7 @@ export default function DayPage() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`text-xs ${isActive ? "text-rose-400 font-bold" : "text-muted"}`}>
-                        {isActive && playing ? "▶" : String(idx + 1).padStart(2, "0")}
+                        {isActive ? (playing ? "❚❚" : "▶") : String(idx + 1).padStart(2, "0")}
                       </span>
                       <div className="min-w-0">
                         <div className="font-serif font-semibold text-sm truncate">{track.title}</div>

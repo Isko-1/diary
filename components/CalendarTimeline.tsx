@@ -169,6 +169,20 @@ export default function CalendarTimeline({
             );
           }
 
+          // Будущий день: записать нельзя, показываем неактивный столбик
+          if (dateKey > todayKey) {
+            return (
+              <div
+                key={dateKey}
+                className="flex flex-col items-center justify-end h-full min-w-0 opacity-40 cursor-not-allowed"
+                title={`${dayNum} ${MON[month].toLowerCase()}: этот день ещё не наступил`}
+              >
+                <div className="w-full rounded-[4px] border border-dotted border-stone-300" style={{ height: "26px" }} />
+                <span className="mt-1.5 font-mono text-[10px] sm:text-xs leading-none text-stone-300">{dayNum}</span>
+              </div>
+            );
+          }
+
           return (
             <Link
               key={dateKey}

@@ -41,10 +41,10 @@ export function defaultItems(day: DayPassport): SceneItem[] {
     it.push({
       id: "weather",
       kind: "weather",
-      x: 22,
-      y: 84,
-      s: 0.82,
-      r: -2,
+      x: 50,
+      y: 9,
+      s: 0.62,
+      r: 0,
       variant: "card",
       zIndex: 20,
     });
@@ -1084,7 +1084,7 @@ function Body({
                 <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.8cqw", fontSize: "2.4cqw", lineHeight: 1.2, fontWeight: isActive ? 700 : 400 }}>
                   <span style={{ opacity: 0.6, fontSize: "2cqw" }}>{String(idx + 1).padStart(2, "0")}.</span>
                   <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</span>
-                  {isActive && <span style={{ color: pal[0] ?? "#e11d48", fontSize: "2cqw" }}>▶</span>}
+                  {isActive && <span style={{ color: pal[0] ?? "#e11d48", fontSize: "2cqw" }}>{playing ? "❚❚" : "▶"}</span>}
                 </div>
               );
             })}
