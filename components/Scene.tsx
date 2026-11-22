@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import type { DayPassport, Song, Technique } from "@/lib/types";
 import { dominant, techniqueName, theme } from "@/lib/style";
 import { tidyTitle } from "@/lib/utils";
@@ -54,8 +54,17 @@ const CSS_FILTERS: Record<string, string> = {
   cool:   "hue-rotate(15deg) saturate(0.85) brightness(0.98)",
 };
 
-export default function Scene({ day, activeSong }: { day: DayPassport; activeSong?: Song }) {
-  const ref = useRef<HTMLCanvasElement>(null);
+export default function Scene({
+  day,
+  activeSong,
+  canvasRef,
+}: {
+  day: DayPassport;
+  activeSong?: Song;
+  canvasRef?: RefObject<HTMLCanvasElement | null>;
+}) {
+  const own = useRef<HTMLCanvasElement>(null);
+  const ref = canvasRef ?? own;
 
   useEffect(() => {
     const canvas = ref.current!;

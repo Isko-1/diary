@@ -7,6 +7,7 @@ import Editor from "@/components/Editor";
 import Scene from "@/components/Scene";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { GLYPH } from "@/lib/env";
+import { downloadDayFolder } from "@/lib/exportDay";
 import { deleteDay, getDay, saveDay } from "@/lib/store";
 import type { DayPassport, SceneItem } from "@/lib/types";
 
@@ -18,6 +19,8 @@ export default function DayPage() {
   const [edit, setEdit] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const posterRef = useRef<HTMLCanvasElement>(null);
+  const [zipping, setZipping] = useState(false);
 
   // Плейлист и текущий трек
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
@@ -183,6 +186,20 @@ export default function DayPage() {
     setDay(updated);
   }
 
+  // Скачивание папки дня (ZIP: текст, фото, песня, постер)
+  async function handleDownloadFolder() {
+    if (!day || zipping) return;
+    setZipping(true);
+    try {
+      const posterOk = await downloadDayFolder(day, posterRef.current);
+      if (!posterOk) alert("Папка скачана, но постер снять не удалось (poster.png нет в архиве).");
+    } catch (e: any) {
+      alert(e?.message || "Не удалось собрать папку дня");
+    } finally {
+      setZipping(false);
+    }
+  }
+
   // Удаление воспоминания
   async function handleDeleteDay() {
     if (!day) return;
@@ -316,7 +333,7 @@ export default function DayPage() {
           <div className="space-y-3 min-w-0">
             <div className="relative rounded-md shadow-2xl transition hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.35)] overflow-hidden sm:overflow-visible">
               {/* Генеративный живописный холст */}
-              <Scene day={day} activeSong={activeSong} />
+              <Scene day={day} activeSong={activeSong} canvasRef={posterRef} />
 
               {/* Интерактивный слой: увеличенный винил, погода, карта, стикеры, кассета */}
               <Overlay
@@ -413,6 +430,14 @@ export default function DayPage() {
               className="rounded-full border border-[var(--foreground)] px-4 sm:px-5 py-2 sm:py-2.5 font-mono text-xs sm:text-sm hover:bg-black/5 transition"
             >
               🎙️ озвучить
+            </button>
+            <button
+              onClick={handleDownloadFolder}
+              disabled={zipping}
+              className="rounded-full border border-[var(--foreground)] px-4 sm:px-5 py-2 sm:py-2.5 font-mono text-xs sm:text-sm hover:bg-black/5 transition disabled:opacity-50"
+              title="ZIP: текст, фото, песня и постер дня"
+            >
+              {zipping ? "⏳ собираю…" : "📁 скачать папку дня"}
             </button>
             {activeSong && (
               <a
