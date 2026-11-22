@@ -1,6 +1,36 @@
 import { NextResponse } from "next/server";
 import { askJson } from "@/lib/llm";
 import type { Song, SongFeatures } from "@/lib/types";
+import { tidyTitle } from "@/lib/utils";
+
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+
+/**
+ * Запасная оценка признаков по жанру (Deezer-альбом или iTunes) и, если есть, BPM.
+ * e — типичная энергия жанра, v — типичная приятность. Это оценка, не измерение; в панели она помечается как «оценка по жанру».
+ * Порядок правил важен: берётся первое совпадение, поэтому узкие жанры стоят раньше широких.
+ */
+const GENRES: [RegExp, { e: number; v: number }][] = [
+  [/metal|метал|punk|панк|hardcore|хард/i, { e: 0.9, v: 0.35 }],
+  [/ambient|эмбиент|new age|lo-?fi|chill|downtempo|классик|classical|instrumental|инструмент|soundtrack|саундтрек|score|опер|opera/i, { e: 0.22, v: 0.45 }],
+  [/jazz|джаз|blues|блюз|bossa|swing/i, { e: 0.4, v: 0.55 }],
+  [/folk|фолк|acoustic|акуст|singer|songwriter|авторск|country|кантри|шансон|chanson/i, { e: 0.35, v: 0.5 }],
+  [/disco|диско|funk|фанк|reggae|регги|latin|латин|salsa|reggaeton/i, { e: 0.74, v: 0.8 }],
+  [/electro|электро|house|хаус|techno|техно|trance|транс|edm|dance|дэнс|drum|dubstep|club/i, { e: 0.82, v: 0.62 }],
+  [/rap|рэп|реп|hip.?hop|хип.?хоп|trap|трэп/i, { e: 0.72, v: 0.5 }],
+  [/r&b|rnb|soul|соул/i, { e: 0.5, v: 0.55 }],
+  [/rock|рок|alternative|альтернатив|indie|инди|grunge/i, { e: 0.68, v: 0.45 }],
+  [/pop|поп|эстрад|variet/i, { e: 0.62, v: 0.66 }],
+];
+
+function genreFeatures(genre?: string, bpm?: number): SongFeatures | null {
+  if (!genre) return null;
+  const g = GENRES.find(([re]) => re.test(genre))?.[1];
+  if (!g) return bpm ? { tempo: bpm } : null;
+  // BPM, если есть, уточняет жанр: быстрый трек того же жанра энергичнее
+  const energy = bpm ? clamp01(0.65 * g.e + 0.35 * clamp01((bpm - 60) / 120)) : g.e;
+  return { energy, valence: g.v, tempo: bpm };
+}
 
 const num = (x: unknown) => (typeof x === "number" && isFinite(x) ? x : undefined);
 const j = async (url: string) => {
@@ -25,11 +55,14 @@ async function fetchITunes(query: string) {
     if (!hit) return null;
     const rawCover = hit.artworkUrl100 || hit.artworkUrl60;
     const coverUrl = rawCover ? rawCover.replace(/100x100bb/, "600x600bb") : null;
+    const y = parseInt(String(hit.releaseDate ?? "").slice(0, 4));
     return {
       preview: hit.previewUrl ?? null,
       coverUrl,
       title: hit.trackName ?? undefined,
       artist: hit.artistName ?? undefined,
+      genre: (hit.primaryGenreName as string | undefined) ?? undefined,
+      year: y || undefined,
     };
   } catch {
     return null;
@@ -109,6 +142,7 @@ export async function POST(req: Request) {
   const s = await j(`https://api.deezer.com/search?q=${q}&limit=1`);
   const hit = s?.data?.[0];
   let deezerId: number | undefined, year: number | undefined, bpm: number | undefined, coverUrl: string | undefined;
+  let genre: string | undefined;
   if (hit) {
     deezerId = hit.id;
     title = hit.title ?? title;
@@ -119,14 +153,26 @@ export async function POST(req: Request) {
     if (y) year = y;
     if (t?.bpm && t.bpm > 0) bpm = t.bpm; // 0 — не ошибка, просто нет данных
     if (!coverUrl && t?.album?.cover_medium) coverUrl = t.album.cover_medium;
+    // Жанр у Deezer лежит на альбоме, а не на треке
+    if (t?.album?.id) {
+      const alb = await j(`https://api.deezer.com/album/${t.album.id}`);
+      const names = (alb?.genres?.data ?? []).map((g: any) => g?.name).filter(Boolean);
+      if (names.length) genre = names.join(", ");
+      if (!year) {
+        const ay = parseInt(String(alb?.release_date ?? "").slice(0, 4));
+        if (ay) year = ay;
+      }
+    }
   }
 
-  // 2b. Если Deezer не вернул обложку (или заблокирован), ищем в iTunes:
-  if (!coverUrl && title) {
+  // 2b. Deezer не дал обложку, жанр или год (или заблокирован) — добираем из iTunes:
+  if ((!coverUrl || !genre || !year) && title) {
     const itunes = await fetchITunes(`${artist} ${title}`.trim());
-    if (itunes?.coverUrl) {
-      coverUrl = itunes.coverUrl;
+    if (itunes) {
+      if (!coverUrl && itunes.coverUrl) coverUrl = itunes.coverUrl;
       if (!artist && itunes.artist) artist = itunes.artist;
+      if (!genre && itunes.genre) genre = itunes.genre;
+      if (!year && itunes.year) year = itunes.year;
     }
   }
 
@@ -142,19 +188,31 @@ export async function POST(req: Request) {
     }
   }
 
-  // 4. Запас: LLM оценивает по названию/исполнителю
+  // 4. LLM оценивает по «исполнитель, название, год, жанр, BPM». Точнее жанра, но часто падает (лимиты, нет ключа).
   if (!features && title) {
+    const meta = [`${artist} — ${title}`, year ? `год ${year}` : "", genre ? `жанр ${genre}` : "", bpm ? `${bpm} BPM` : ""].filter(Boolean).join(", ");
     const g = await askJson(
-      'Оцени аудио-признаки песни по названию и исполнителю. Верни СТРОГО JSON: {"energy":0..1,"valence":0..1,"tempo":bpm,"mode":0|1} (mode 0 = минор).',
-      `${artist} — ${title}${year ? ` (${year})` : ""}`,
+      'Оцени аудио-признаки песни по названию, исполнителю и жанру. Верни СТРОГО JSON: {"energy":0..1,"valence":0..1,"tempo":bpm,"mode":0|1} (mode 0 = минор).',
+      meta,
     );
     if (g && num(g.energy) != null) {
-      features = { energy: g.energy, valence: num(g.valence), tempo: bpm ?? num(g.tempo), mode: g.mode === 0 ? 0 : g.mode === 1 ? 1 : undefined };
+      features = { energy: clamp01(g.energy), valence: num(g.valence) != null ? clamp01(g.valence) : undefined, tempo: bpm ?? num(g.tempo), mode: g.mode === 0 ? 0 : g.mode === 1 ? 1 : undefined };
       featuresSource = "llm";
     }
   }
-  if (!features && bpm) features = { tempo: bpm };
+  // 5. Оценка по жанру (+BPM). Работает без ключей и без BPM, поэтому музыка влияет на оформление даже при пустом ответе Deezer.
+  if (!features) {
+    const gf = genreFeatures(genre, bpm);
+    if (gf?.energy != null) {
+      features = gf;
+      featuresSource = "genre";
+    }
+  }
+  if (!features && bpm) {
+    features = { tempo: bpm };
+    featuresSource = "tempo";
+  }
 
-  const song: Song = { title: title || "Без названия", artist: artist || "—", year, link, deezerId, coverUrl, features, featuresSource };
+  const song: Song = { title: tidyTitle(title) || "Без названия", artist: artist || "—", year, genre, link, deezerId, coverUrl, features, featuresSource };
   return NextResponse.json(song);
 }

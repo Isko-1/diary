@@ -1,4 +1,4 @@
-export type Technique = "monet" | "matisse" | "kandinsky" | "minimal";
+export type Technique = "monet" | "matisse" | "kandinsky" | "minimal" | "popart";
 export type TimeOfDay = "morning" | "day" | "evening" | "night";
 export type Season = "winter" | "spring" | "summer" | "autumn";
 
@@ -13,12 +13,17 @@ export type Song = {
   title: string;
   artist: string;
   year?: number;
+  genre?: string; // из Deezer (альбом), для оценки признаков по жанру
   link: string;
   deezerId?: number; // превью запрашиваем при открытии дня, URL не храним
   coverUrl?: string; // Обложка сингла/альбома песни
   startTime?: number; // Смещение начала воспроизведения отрывка (в секундах, напр. 0..25)
   features: SongFeatures | null;
-  featuresSource: "reccobeats" | "meyda" | "llm" | null;
+  /**
+   * reccobeats — измеренные признаки; genre — оценка по жанру и BPM из Deezer;
+   * llm — оценка модели по «исполнитель, название, год, жанр»; tempo — только BPM.
+   */
+  featuresSource: "reccobeats" | "meyda" | "genre" | "llm" | "tempo" | null;
 };
 
 export type DayContext = {
@@ -59,7 +64,7 @@ export type SceneItem = {
   zIndex?: number;
 };
 
-export type PhotoFilter = "auto" | "none" | "film" | "bw" | "warm" | "cool" | "monet" | "kandinsky" | "matisse" | "minimal";
+export type PhotoFilter = "auto" | "none" | "film" | "bw" | "warm" | "cool" | "monet" | "kandinsky" | "matisse" | "minimal" | "popart";
 
 export type DayPassport = {
   id: string;

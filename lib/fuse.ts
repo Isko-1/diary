@@ -24,7 +24,9 @@ export function fuse(p: In) {
     [0.5, p.textMood.valence],
     [0.15, p.photoStats.warmth],
   ];
-  if (f?.valence != null) v.push([0.35, f.valence]);
+  // Оценка по жанру грубее измерения, поэтому её вес ниже
+  const estimated = src === "genre" || src === "llm";
+  if (f?.valence != null) v.push([estimated ? 0.25 : 0.35, f.valence]);
 
   // «Энергия песни» бывает двух видов: настоящая (energy из ReccoBeats или оценка модели)
   // и просто темп BPM, пересчитанный в 0..1. Это разные вещи, и в объяснении они различаются.
@@ -52,9 +54,7 @@ export function fuse(p: In) {
         ? 0.1 // При дедлайне музыка не может разбавить тревогу до «минимализма»
         : energyKind === "tempo"
           ? 0.15
-          : textDecisive
-            ? 0.2
-            : 0.4;
+          : (textDecisive ? 0.2 : 0.4) * (estimated ? 0.8 : 1);
   const textW = isHighTension ? 0.75 : textDecisive ? 0.65 : 0.4;
 
   const a: [number, number][] = [
@@ -81,7 +81,9 @@ export function fuse(p: In) {
         ? `темп ${Math.round(f!.tempo!)} BPM (энергия трека не измерена)`
         : src === "llm"
           ? `энергия песни ≈${e} (оценка модели, не измерение)`
-          : `энергия песни ${e}`;
+          : src === "genre"
+            ? `энергия песни ≈${e} (оценка по жанру${p.song.genre ? ` «${p.song.genre}»` : ""}${f?.tempo ? " и BPM" : ""}, не измерение)`
+            : `энергия песни ${e}`;
     why.push(
       songEnergy < 0.4
         ? `${label} → медленный ритм, больше воздуха`
@@ -105,6 +107,7 @@ export function fuse(p: In) {
   }
   if (f?.mode === 0) why.push("минор в песне → тона холоднее и приглушённее");
   if (f?.mode === 1) why.push("мажор в песне → тона светлее и чище");
+  if (src === "genre" && f?.valence != null) why.push(`приятность жанра ≈${f.valence.toFixed(2)} → оттенок палитры`);
   if (src === "llm" && f?.mode != null) why.push("тональность оценена моделью по названию и исполнителю (не измерена)");
   if (!f) why.push("признаков песни нет → оформление держится на тексте и фото");
   why.push(`тон записи ${p.textMood.valence.toFixed(2)}, напряжённость ${ta.toFixed(2)}`);

@@ -250,7 +250,7 @@ export default function Editor({
           setGeoModal(true);
           return;
         }
-        newItem = { id, kind: "weather", x: 22, y: 84, s: 0.82, r: -2, variant: "card" };
+        newItem = { id, kind: "weather", x: 50, y: 9, s: 0.62, r: 0, variant: "card" };
         break;
       case "map":
         if (!day.geo) {
@@ -418,7 +418,7 @@ export default function Editor({
       const hasM = prev.some((i) => i.kind === "map");
       const next = [...prev];
       if (weather && !hasW) {
-        next.push({ id: `weather-${Date.now()}`, kind: "weather", x: 22, y: 84, s: 0.82, r: -2, variant: "card" });
+        next.push({ id: `weather-${Date.now()}`, kind: "weather", x: 50, y: 9, s: 0.62, r: 0, variant: "card" });
       }
       if (geo && !hasM) {
         next.push({ id: `map-${Date.now()}`, kind: "map", x: 84, y: 13, s: 0.75, r: 2, variant: "stamp" });
@@ -563,6 +563,7 @@ export default function Editor({
                 { key: "kandinsky", label: "🔷 Кандинский",     desc: "Абстрактная геометрия" },
                 { key: "matisse",   label: "🫧 Матисс",         desc: "Пятна цвета и аппликации" },
                 { key: "minimal",   label: "⬜ Минимал",        desc: "Лаконичные линии" },
+                { key: "popart",    label: "💥 Поп-арт",       desc: "Растр и яркие вспышки" },
               ] as const).map((ef) => (
                 <button
                   key={ef.key}
@@ -611,32 +612,6 @@ export default function Editor({
               >
                 <span>{day.style.hideSongLabel ? "✕" : "✓"}</span>
                 <span>Название трека внизу</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setDay((p) =>
-                    p
-                      ? {
-                          ...p,
-                          style: {
-                            ...p.style,
-                            hideStyleLabel: !p.style.hideStyleLabel,
-                          },
-                        }
-                      : p
-                  )
-                }
-                className={`rounded-lg px-3 py-1.5 font-mono text-xs transition flex items-center gap-1.5 ${
-                  day.style.hideStyleLabel
-                    ? "border border-dashed border-rose-300 bg-rose-50 text-rose-700"
-                    : "border border-stone-300 bg-white text-stone-800 shadow-sm"
-                }`}
-                title="Включить / скрыть подпись стиля вверху справа"
-              >
-                <span>{day.style.hideStyleLabel ? "✕" : "✓"}</span>
-                <span>Название стиля вверху</span>
               </button>
 
               <button

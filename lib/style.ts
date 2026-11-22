@@ -6,15 +6,17 @@ const clamp = (x: number) => Math.min(1, Math.max(0, x));
 
 /** Центры техник на карте настроений (x = arousal, y = valence). */
 const CENTERS: Record<Technique, { a: number; v: number }> = {
-  monet: { a: 0.25, v: 0.75 },
-  matisse: { a: 0.8, v: 0.8 },
-  kandinsky: { a: 0.8, v: 0.25 },
+  monet: { a: 0.2, v: 0.72 },
+  matisse: { a: 0.55, v: 0.8 },
+  popart: { a: 0.93, v: 0.78 },
+  kandinsky: { a: 0.85, v: 0.25 },
   minimal: { a: 0.2, v: 0.25 },
 };
 
 const NAMES: Record<Technique, string> = {
   monet: "Моне",
   matisse: "Матисс",
+  popart: "Поп-арт",
   kandinsky: "Кандинский",
   minimal: "Минимализм",
 };
@@ -27,6 +29,7 @@ export function dominant(w: Record<Technique, number>): Technique {
 const WHY_TECH: Record<Technique, string> = {
   monet: "спокойно и тепло → мазки Моне: мягкий свет, размытые края",
   matisse: "живо и радостно → вырезанные формы Матисса",
+  popart: "громко, ярко и счастливо → поп-арт: плоские цвета, растр, вспышки",
   kandinsky: "напряжённо и ритмично → линии и круги Кандинского",
   minimal: "тихо и пусто → цветовые поля, много воздуха",
 };

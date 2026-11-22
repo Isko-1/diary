@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import type { DayPassport, Song, Technique } from "@/lib/types";
 import { dominant, techniqueName, theme } from "@/lib/style";
+import { tidyTitle } from "@/lib/utils";
 
 export const W = 1080, H = 1350;
 /** Постоянные элементы: рамка фото, один и тот же в каждом дне. */
@@ -232,7 +233,39 @@ export default function Scene({ day, activeSong }: { day: DayPassport; activeSon
         ctx.restore();
       }
 
+      /** Поп-арт: плоская плашка цвета, растр Бен-Дея, пульсирующие вспышки с чёрным контуром. */
+      function popart(a: number, t: number) {
+        const r = rng(day.id + "p");
+        ctx.save();
+        ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = a * 0.4; ctx.fillStyle = pal[0]; ctx.fillRect(F.x, F.y, F.w, F.h);
+        ctx.globalCompositeOperation = "source-over";
+        const step = 40 - 14 * tempo, dot = pal[1] ?? pal[0];
+        ctx.fillStyle = dot; ctx.globalAlpha = a * 0.6;
+        for (let y = F.y, row = 0; y < F.y + F.h; y += step, row++) {
+          for (let x = F.x + (row % 2 ? step / 2 : 0); x < F.x + F.w; x += step) {
+            const wave = 0.5 + 0.5 * Math.sin((x + y) * 0.012 - t * (1 + tempo * 3));
+            ctx.beginPath(); ctx.arc(x, y, step * 0.4 * (0.35 + 0.65 * wave), 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        const n = 2 + Math.round(density * 3);
+        for (let i = 0; i < n; i++) {
+          const cx = F.x + 120 + r() * (F.w - 240), cy = F.y + 120 + r() * (F.h - 240), R = 70 + r() * 90, sp = 9 + ((r() * 6) | 0);
+          const k = 1 + 0.07 * Math.sin(t * (2 + tempo * 4) + i);
+          ctx.beginPath();
+          for (let j = 0; j < sp * 2; j++) {
+            const ang = (j / (sp * 2)) * Math.PI * 2, rr = (j % 2 ? R * 0.6 : R) * k;
+            const px = cx + Math.cos(ang) * rr, py = cy + Math.sin(ang) * rr;
+            j ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+          }
+          ctx.closePath();
+          ctx.globalAlpha = a * 0.92; ctx.fillStyle = pal[(i + 2) % pal.length] ?? dot; ctx.fill();
+          ctx.lineWidth = 6; ctx.strokeStyle = "#111"; ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       const layers: Record<Technique, (a: number, t: number, s: Slot, local: number) => void> = {
+        popart: (a, t) => popart(a, t),
         monet: (a, _t, s, l) => monet(s, a, l),
         kandinsky: (a, t) => kandinsky(a, t),
         matisse: (a, t) => matisse(a, t),
@@ -329,17 +362,12 @@ export default function Scene({ day, activeSong }: { day: DayPassport; activeSon
           ctx.fillText(`${dd}.${mm}.${yy}`, F.x, 120);
         }
 
-        if (!day.style.hideStyleLabel) {
-          ctx.textAlign = "right"; ctx.globalAlpha = 0.6; ctx.font = '500 22px "JetBrains Mono", monospace';
-          ctx.fillText(`// ${activeTechniqueName.toUpperCase()}`, F.x + F.w, 120);
-        }
-
         ctx.globalAlpha = 1; ctx.textAlign = "left"; ctx.font = '500 56px Fraunces, serif';
         wrap(day.title, F.w).slice(0, 2).forEach((l, i) => ctx.fillText(l, F.x, F.y + F.h + 90 + i * 62));
 
         if (!day.style.hideSongLabel) {
           const playingSong = activeSong || day.song;
-          let fs = 60; const sig = `♪ ${playingSong.title} — ${playingSong.artist}`;
+          let fs = 60; const sig = `♪ ${tidyTitle(playingSong.title)} — ${playingSong.artist}`;
           ctx.font = `${fs}px Caveat, cursive`;
           while (ctx.measureText(sig).width > F.w && fs > 28) { fs -= 2; ctx.font = `${fs}px Caveat, cursive`; }
           ctx.globalAlpha = 0.85; ctx.fillText(sig, F.x, 1270);

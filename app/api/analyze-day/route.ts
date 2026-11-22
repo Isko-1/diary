@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { askJson } from "@/lib/llm";
+import { textEnergy } from "@/lib/textEnergy";
 import type { Season, TimeOfDay } from "@/lib/types";
 
 const TOD = ["morning", "day", "evening", "night"];
@@ -14,7 +15,7 @@ const MOOD_SYSTEM = `Ты анализируешь запись личного �
 {"textMood":{"valence":0..1,"arousal":0..1,"warmth":0..1},
  "context":{"timeOfDay":"morning|day|evening|night","season":"winter|spring|summer|autumn","people":[],"places":[],"keywords":[]}}
 valence — приятность настроения (0 неприятно, 1 приятно).
-arousal — энергия и напряжённость текста, это отдельная ось от valence: срочность, тревога, спешка, дедлайн, шум дают 0.75–1; покой, неспешность, тишина дают 0–0.3.
+arousal — энергия текста, это отдельная ось от valence: шум, драйв, движение, восклицания, концерт, спорт, спешка, дедлайн дают 0.75–1 (и радостный концерт, и тревожный дедлайн); покой, неспешность, тишина, уют, грусть дают 0–0.3.
 warmth — душевное тепло.
 Это описание тона текста, а не диагноз.`;
 
@@ -30,9 +31,10 @@ function fallbackMood(text: string, date: unknown) {
   const has = (...w: string[]) => w.some((x) => t.includes(x));
   const kw = [...new Set(text.toLowerCase().match(/[а-яёa-z]{5,}/g) ?? [])].slice(0, 4);
   return {
+    fallback: true,
     textMood: {
-      valence: has("тепл", "счаст", "радост", "уют", "смех", "какао") ? 0.75 : has("устал", "груст", "тревог", "срочн", "дедлайн") ? 0.3 : 0.5,
-      arousal: has("срочн", "бежал", "дедлайн", "быстр", "шум", "ночь в офисе") ? 0.8 : has("тих", "спокой", "медленн", "долго") ? 0.25 : 0.5,
+      valence: has("тепл", "счаст", "радост", "уют", "смех", "какао", "весел", "круто", "здорово") ? 0.75 : has("устал", "груст", "тревог", "срочн", "дедлайн", "одинок", "тоск", "печал") ? 0.3 : 0.5,
+      arousal: 0.5, // настоящее значение берётся из textEnergy() в POST
       warmth: has("тепл", "какао", "обнял", "друг") ? 0.8 : 0.4,
     },
     context: {
@@ -55,8 +57,9 @@ const TITLE_SYSTEM = `Ты придумываешь красивое назва�
 - одно назывное словосочетание без глаголов, одного спокойного тона (как подпись в фотоальбоме);
 - без кавычек, без точки на конце, без эмодзи;
 - обязательно сохраняй предлоги и союзы, слова должны быть согласованы грамматически;
-- включи ключевые образы дня: место, время года/суток, предмет или спутника.
-Примеры: «Осенний парк и какао», «Ночь в офисе перед сдачей», «Вечерняя прогулка у пруда».`;
+- включи ключевые образы дня: место, время года/суток, погоду, состояние, предмет или спутника;
+- не используй пустые слова «день», «сегодня», «весь» как главный образ.
+Примеры: «Осенний парк и какао», «Ночь в офисе перед сдачей», «Дождь, одиночество и чай».`;
 
 const STOP_END = new Set(["и", "в", "во", "с", "со", "на", "по", "у", "к", "о", "об", "от", "из", "за", "для", "без", "над", "под", "при", "а", "но", "или"]);
 
@@ -70,7 +73,9 @@ function cleanTitle(raw: unknown): string | null {
     .replace(/\s+/g, " ")
     .trim();
   const n = words(t);
-  if (n < 2 || n > 7) return null;
+  if (n < 3 || n > 7) return null;
+  // «День и чай»: пустое слово в главной роли — отказ, выберем эвристику
+  if (/^(день|сегодня|весь|вся|всё)(?![а-яё])/i.test(t)) return null;
   const last = t.split(" ").pop()!.toLowerCase();
   if (STOP_END.has(last)) return null;
   return t.charAt(0).toUpperCase() + t.slice(1);
@@ -119,22 +124,47 @@ const PLACES: { re: RegExp; nom: string; prep: string; g: Gender }[] = [
   { re: new RegExp(`${L}город(?:е|у|а|ом)?${E}`), nom: "город", prep: "городе", g: "m" },
 ];
 
-const THINGS: { re: RegExp; nom: string }[] = [
-  { re: /какао/, nom: "какао" },
-  { re: new RegExp(`${L}кофе${E}`), nom: "кофе" },
-  { re: new RegExp(`${L}ча(?:й|е|ю|я|ем)${E}`), nom: "чай" },
-  { re: /дожд/, nom: "дождь" },
-  { re: /снегопад|метел/, nom: "метель" },
-  { re: new RegExp(`${L}снег`), nom: "снег" },
-  { re: /закат/, nom: "закат" },
-  { re: /рассвет/, nom: "рассвет" },
-  { re: /гроз[аыу]/, nom: "гроза" },
-  { re: /туман/, nom: "туман" },
-  { re: /концерт/, nom: "концерт" },
-  { re: /пикник/, nom: "пикник" },
-  { re: new RegExp(`${L}ужин`), nom: "ужин" },
-  { re: new RegExp(`фильм|${L}кино${E}`), nom: "кино" },
-  { re: /костр/, nom: "костёр" },
+/**
+ * Ключевые образы дня. k: 0 — погода и природа, 1 — состояние, 2 — предмет или событие.
+ * В название берётся по одному образу каждого вида, в этом порядке: «Дождь, одиночество и чай».
+ * Пустые слова («день», «сегодня», «весь») сюда не попадают по построению.
+ */
+const NOUNS: { re: RegExp; nom: string; k: 0 | 1 | 2 }[] = [
+  { re: /дожд|ливень|морос/, nom: "дождь", k: 0 },
+  { re: /снегопад|метел/, nom: "метель", k: 0 },
+  { re: new RegExp(`${L}снег`), nom: "снег", k: 0 },
+  { re: /гроз[аыу]/, nom: "гроза", k: 0 },
+  { re: /туман/, nom: "туман", k: 0 },
+  { re: /закат/, nom: "закат", k: 0 },
+  { re: /рассвет/, nom: "рассвет", k: 0 },
+  { re: new RegExp(`${L}ветер|${L}ветр`), nom: "ветер", k: 0 },
+  { re: new RegExp(`${L}солнц|${L}солнечн`), nom: "солнце", k: 0 },
+
+  { re: /одинок|одиночеств|в одиночку/, nom: "одиночество", k: 1 },
+  { re: /груст|печал|тоск/, nom: "грусть", k: 1 },
+  { re: /тревог|волнени/, nom: "тревога", k: 1 },
+  { re: /счасть|счастлив|радост|радовал/, nom: "радость", k: 1 },
+  { re: /любов|влюбл/, nom: "любовь", k: 1 },
+  { re: new RegExp(`тишин|${L}тих(?:о|ий|ая|ое)${E}`), nom: "тишина", k: 1 },
+  { re: /устал/, nom: "усталость", k: 1 },
+  { re: /скук|скучн/, nom: "скука", k: 1 },
+  { re: /ностальг/, nom: "ностальгия", k: 1 },
+  { re: new RegExp(`${L}смех|${L}смеял|${L}хохот`), nom: "смех", k: 1 },
+
+  { re: /какао/, nom: "какао", k: 2 },
+  { re: new RegExp(`${L}кофе${E}`), nom: "кофе", k: 2 },
+  { re: new RegExp(`${L}ча(?:й|е|ю|я|ем)${E}`), nom: "чай", k: 2 },
+  { re: /концерт/, nom: "концерт", k: 2 },
+  { re: /фестивал/, nom: "фестиваль", k: 2 },
+  { re: /вечеринк|тусовк/, nom: "вечеринка", k: 2 },
+  { re: /пикник/, nom: "пикник", k: 2 },
+  { re: new RegExp(`${L}ужин`), nom: "ужин", k: 2 },
+  { re: new RegExp(`фильм|${L}кино${E}`), nom: "кино", k: 2 },
+  { re: new RegExp(`${L}книг|${L}читал`), nom: "книга", k: 2 },
+  { re: /костр/, nom: "костёр", k: 2 },
+  { re: /танц/, nom: "танцы", k: 2 },
+  { re: /музык/, nom: "музыка", k: 2 },
+  { re: new RegExp(`${L}гуля|${L}прогул`), nom: "прогулка", k: 2 },
 ];
 
 const PEOPLE = new RegExp(
@@ -159,15 +189,15 @@ function explicitTod(t: string): TimeOfDay | null {
 }
 
 /**
- * Локальное название без LLM. Собирается из словаря мест, предметов и времени суток
- * с сохранением предлогов и согласованием прилагательных, а не из «первых трёх слов».
+ * Локальное название без LLM. Собирается из словарей мест и образов дня (погода, состояние, предмет)
+ * с сохранением предлогов и согласованием прилагательных.
  * «Гуляли по парку… жёлтых листьях… какао» → «Осенний парк и какао»,
- * «срочная сдача… ночь в офисе» → «Ночь в офисе перед сдачей».
+ * «срочная сдача… ночь в офисе» → «Ночь в офисе перед сдачей»,
+ * «дождь, одиночество, грусть, чай» → «Дождь, одиночество и чай».
  */
 function heuristicTitle(text: string): string {
   const t = text.toLowerCase();
   const place = PLACES.find((p) => p.re.test(t));
-  const thing = THINGS.find((x) => x.re.test(t));
   const people = t.match(PEOPLE)?.[1];
   const season = explicitSeason(t);
   const tod = explicitTod(t);
@@ -179,6 +209,15 @@ function heuristicTitle(text: string): string {
     return n >= 3 && n <= 7 ? cap(s.replace(/\s+/g, " ").trim()) : null;
   };
 
+  // по одному образу каждого вида: погода → состояние → предмет
+  const nouns: string[] = [];
+  for (const k of [0, 1, 2] as const) {
+    const n = NOUNS.find((x) => x.k === k && x.re.test(t));
+    if (n) nouns.push(n.nom);
+  }
+  const joined =
+    nouns.length >= 3 ? `${nouns[0]}, ${nouns[1]} и ${nouns[2]}` : nouns.length === 2 ? `${nouns[0]} и ${nouns[1]}` : "";
+
   let out: string | null = null;
 
   if (DEADLINE.test(t)) {
@@ -188,39 +227,22 @@ function heuristicTitle(text: string): string {
 
   if (!out && place) {
     const head = `${adjFor(place.g)} ${place.nom}`.trim();
-    const tail = thing ? ` и ${thing.nom}` : people ? ` с ${people}` : todW ? ` ${todW.adv}` : "";
+    const tail = nouns[0] ? ` и ${nouns[nouns.length - 1]}` : people ? ` с ${people}` : todW ? ` ${todW.adv}` : "";
     out = ok(head + tail) ?? ok(`${head} ${todW?.adv ?? "днём"}`);
   }
 
-  if (!out && todW) {
+  if (!out && joined) out = ok(joined);
+
+  // «день» без прилагательного — пустое слово, как главный образ не берём
+  if (!out && todW && !(tod === "day" && !season)) {
     const head = `${adjFor(todW.g)} ${todW.nom}`.trim();
-    const tail = thing ? ` и ${thing.nom}` : people ? ` с ${people}` : "";
+    const tail = nouns[0] ? ` и ${nouns[0]}` : people ? ` с ${people}` : "";
     out = ok(head + tail) ?? ok(`Один ${head}`);
   }
 
-  if (!out && thing) {
-    out = ok(`${season ? cap(SEASON_ADJ[season][0]) + " день" : "День"} и ${thing.nom}`);
-  }
+  if (!out && nouns[0]) out = ok(`${cap(nouns[0])} одного дня`);
 
-  if (!out) {
-    // Выделяем первую естественную фразу с сохранением предлогов и грамматики
-    const firstSentence = text.split(/[.!?\n…]+/)[0]?.trim();
-    if (firstSentence) {
-      const cleaned = firstSentence.replace(/["«»“”„'`]/g, "").replace(/\s+/g, " ");
-      const wList = cleaned.split(" ");
-      if (wList.length >= 3) {
-        const sliceLen = Math.min(6, Math.max(3, wList.length));
-        let candidate = wList.slice(0, sliceLen).join(" ");
-        const lastWord = candidate.split(" ").pop()?.toLowerCase() ?? "";
-        if (STOP_END.has(lastWord)) {
-          candidate = candidate.split(" ").slice(0, -1).join(" ");
-        }
-        out = ok(candidate);
-      }
-    }
-  }
-
-  return out ?? "Осенний день из дневника";
+  return out ?? "Один день из дневника";
 }
 
 async function makeTitle(text: string, date: unknown): Promise<{ title: string; source: "llm" | "heuristic" }> {
@@ -237,7 +259,7 @@ async function makeTitle(text: string, date: unknown): Promise<{ title: string; 
 async function makeMood(text: string, date: unknown) {
   const user = `${typeof date === "string" ? `Дата: ${date}\n\n` : ""}${text.slice(0, 4000)}`;
   const j = await askJson(MOOD_SYSTEM, user, { temperature: 0.3, maxTokens: 300 });
-  if (j && j.textMood && j.context) return j;
+  if (j && j.textMood && j.context) return { ...j, fallback: false };
   return fallbackMood(text, date);
 }
 
@@ -250,10 +272,20 @@ export async function POST(req: Request) {
   // больше не выбрасывает настроение, и наоборот.
   const [out, t] = await Promise.all([makeMood(text, date), makeTitle(text, date)]);
 
+  // Ось «энергия текста» считается ещё и по лексике (восклицания, «прыгали», «орали», «громко», «дедлайн»).
+  // Без LLM она единственный источник; с LLM — решающий голос, если лексика однозначна.
+  const lex = textEnergy(text);
+  const llmA = clamp(out.textMood.arousal);
+  const arousal = out.fallback
+    ? lex.energy
+    : Math.abs(lex.energy - 0.5) >= 0.2
+      ? 0.35 * llmA + 0.65 * lex.energy
+      : 0.7 * llmA + 0.3 * lex.energy;
+
   return NextResponse.json({
     textMood: {
       valence: clamp(out.textMood.valence),
-      arousal: clamp(out.textMood.arousal),
+      arousal: clamp(arousal),
       warmth: clamp(out.textMood.warmth),
     },
     context: {
@@ -265,5 +297,6 @@ export async function POST(req: Request) {
     },
     title: t.title,
     titleSource: t.source,
+    energyHits: lex.hits,
   });
 }
