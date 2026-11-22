@@ -102,7 +102,7 @@ export async function askJson(system: string, user: string, opts: Opts = {}): Pr
     }
   }
 
-  // 2. Anthropic
+  // 3. Anthropic
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (anthropicKey && anthropicKey !== "секрет") {
     try {

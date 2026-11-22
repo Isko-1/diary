@@ -23,7 +23,7 @@ export type Song = {
    * reccobeats — измеренные признаки; genre — оценка по жанру и BPM из Deezer;
    * llm — оценка модели по «исполнитель, название, год, жанр»; tempo — только BPM.
    */
-  featuresSource: "reccobeats" | "meyda" | "genre" | "llm" | "tempo" | null;
+  featuresSource: "reccobeats" | "genre" | "llm" | "tempo" | null;
 };
 
 export type DayContext = {

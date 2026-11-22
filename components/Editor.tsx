@@ -38,6 +38,9 @@ const BADGE_PRESETS = [
   "I hate rain",
 ];
 
+/** Строки объяснения, которые добавляет weatherTweak: при смене погоды старые заменяются, а не копятся. */
+const WEATHER_WHY = /по кадру идут капли|^туман → размытые|^снег → тише|^ясно → чище свет|^ветер \d+ км\/ч → быстрее/;
+
 export default function Editor({
   day,
   setDay,
@@ -257,7 +260,7 @@ export default function Editor({
           setGeoModal(true);
           return;
         }
-        newItem = { id, kind: "map", x: 84, y: 13, s: 0.75, r: 2, variant: "stamp" };
+        newItem = { id, kind: "map", x: 84, y: 13, s: 0.75, r: 2, variant: "tile" };
         break;
       case "note":
         newItem = {
@@ -408,7 +411,7 @@ export default function Editor({
         geo,
         weather: weather ?? prev.weather,
         style: nextStyle,
-        why: [...prev.why, ...extraWhy],
+        why: [...prev.why.filter((r) => !WEATHER_WHY.test(r)), ...extraWhy],
       };
     });
 
@@ -421,7 +424,7 @@ export default function Editor({
         next.push({ id: `weather-${Date.now()}`, kind: "weather", x: 50, y: 9, s: 0.62, r: 0, variant: "card" });
       }
       if (geo && !hasM) {
-        next.push({ id: `map-${Date.now()}`, kind: "map", x: 84, y: 13, s: 0.75, r: 2, variant: "stamp" });
+        next.push({ id: `map-${Date.now()}`, kind: "map", x: 84, y: 13, s: 0.75, r: 2, variant: "tile" });
       }
       return next.map((it, i) => ({ ...it, zIndex: (i + 1) * 10 }));
     });
